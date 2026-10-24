@@ -1,7 +1,7 @@
 import { FRONTIERS } from '../data/world.js';
 import { CONFIG } from './config.js';
 import { PROV, distance, isWinter } from './graph.js';
-import { cull, debtTotal, hostile, killFaction, legionPower, newFaction, ownedLegions, ownedProvinces, takeLegion } from './core.js';
+import { money, cull, debtTotal, hostile, killFaction, legionPower, newFaction, ownedLegions, ownedProvinces, takeLegion } from './core.js';
 import { fight } from './combat.js';
 import { hold } from './rome.js';
 
@@ -12,26 +12,26 @@ export function economy(s) {
     let inc = 0;
     for (const P of ownedProvinces(s, F.id)) {
       if (P.breachUntil > s.turn) continue;
-      const tax = P.tax === 'heavy' ? 1.4 : P.tax === 'extort' ? 1.8 : 1;
+      const tax = P.tax === 'heavy' ? 1.4 : P.tax === 'extort' ? 1.8 : P.tax === 'light' ? 0.85 : 1;
       inc += PROV[P.id].rev * tax * (P.unrest > 60 ? 0.5 : 1);
     }
     if (s.emperor === F.id) for (const P of ownedProvinces(s, 'state')) inc += PROV[P.id].rev * CONFIG.stateShare;
-    F.treasury += inc;
+    money(s, F, inc, 'revenue');
     // pay: before you hold a province, the state still pays your legion
     const legs = ownedLegions(s, F.id);
     if (F.kind === 'player' && !F.ownsProvince) continue;
     const pay = legs.reduce((a, l) => a + l.men * CONFIG.payPerMan * l.payMult, 0);
-    F.treasury -= pay;
-    F.treasury -= F.borrowed * CONFIG.interest;
+    money(s, F, -pay, 'pay');
+    money(s, F, -F.borrowed * CONFIG.interest, 'interest');
     // debts falling due
     for (const l of legs) {
       if (l.debt > 0 && l.debtDue <= s.turn) {
-        if (!F.stingy && F.treasury >= l.debt) { F.treasury -= l.debt; l.debt = 0; l.debtDue = -1; l.loyalty += 4; }
+        if (!F.stingy && F.treasury >= l.debt) { money(s, F, -l.debt, 'promise paid: ' + l.id); l.debt = 0; l.debtDue = -1; l.loyalty += 4; }
         else { l.overdue = true; }
       }
     }
     const credit = F.credit ?? F.stats.opes * CONFIG.creditPerOpes;
-    if (F.treasury < 0 && F.borrowed < credit) { const b = Math.min(credit - F.borrowed, -F.treasury); F.borrowed += b; F.treasury += b; }
+    if (F.treasury < 0 && F.borrowed < credit) { const b = Math.min(credit - F.borrowed, -F.treasury); F.borrowed += b; money(s, F, b, 'borrowed'); }
     F.unpaid = F.treasury < 0;
     if (F.kind === 'player') s.stats.debtPeak = Math.max(s.stats.debtPeak, debtTotal(s, F.id) + F.borrowed);
   }
@@ -39,8 +39,11 @@ export function economy(s) {
   if (s.emperor) {
     let g = 0;
     for (const P of Object.values(s.prov)) {
-      if (P.owner !== s.emperor && P.owner !== 'state') continue;
+      const ships = P.grainPolicy === 'ship' && P.owner !== s.emperor;
+      if (P.owner !== s.emperor && P.owner !== 'state' && !ships) continue;
+      if (P.grainPolicy === 'hold' && P.owner === s.emperor) continue;
       g += PROV[P.id].grain * (winter ? 0.5 : 1);
+      if (ships && PROV[P.id].grain) money(s, s.factions[P.owner], 8 * PROV[P.id].grain, 'grain sold to Rome');
     }
     const E = s.factions[s.emperor];
     const short = CONFIG.romeGrainNeed * (winter ? 0.5 : 1) - g;
@@ -146,7 +149,7 @@ export function frontiers(s) {
   }
   for (const P of Object.values(s.prov)) {
     if (P.owner === 'state') { P.unrest = Math.max(0, P.unrest - 2); continue; }
-    P.unrest += P.tax === 'heavy' ? 3 : P.tax === 'extort' ? 9 : -3;
+    P.unrest += P.tax === 'heavy' ? 3 : P.tax === 'extort' ? 9 : P.tax === 'light' ? -5 : -3;
     P.unrest = Math.max(0, Math.min(100, P.unrest));
     if (P.unrest > 85 && !Object.values(s.legions).some((l) => l.loc === P.id && l.owner === P.owner)) {
       const O = s.factions[P.owner];

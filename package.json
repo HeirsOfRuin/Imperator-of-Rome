@@ -3,7 +3,11 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "check": "node tools/check.js && node tools/bot.js 21",
+    "measure": "node tools/measure-campaign.js",
+    "measure:diplomacy": "node tools/measure-diplomacy.js",
+    "map": "node tools/build-map.js",
     "sim": "node sim/run.js",
-    "check": "node sim/check.js"
+    "serve": "python3 -m http.server 8000"
   }
 }

@@ -1,7 +1,7 @@
 import { GROUP_OF_PROVINCE } from '../data/world.js';
 import { CONFIG, ROAD_STAT } from './config.js';
 import { ITALY, distance } from './graph.js';
-import { hostile, killFaction, log, newLegion, ownedLegions, ownedProvinces, takeLegion } from './core.js';
+import { money, hostile, killFaction, log, newLegion, ownedLegions, ownedProvinces, takeLegion } from './core.js';
 import { history } from './history.js';
 import { loyalty } from './world.js';
 
@@ -48,14 +48,17 @@ export function hold(s) {
   if (!E || !E.alive || !s.actIVOpen || s.prov.ROM.owner !== E.id) return;
   const r = s.R.events;
   const italyLegs = Object.values(s.legions).filter((l) => ITALY.includes(l.loc) && l.owner === E.id).length;
-  // spending: the dole and the Senate
-  if (s.romeUnrest > 40 && E.treasury > 400) { E.treasury -= 150; s.romeUnrest = Math.max(0, s.romeUnrest - 15); }
-  if (E.road === 'wealth' && E.legit < 50 && E.treasury > 600) { E.treasury -= 200; E.legit += 4; }
-  if (E.road === 'politics' && E.legit < 70 && E.treasury > 300) { E.treasury -= 80; E.legit += 2; } // consulships for friends
-  if (E.road === 'charisma' && E.legit < 60 && E.treasury > 250) { E.treasury -= 100; E.legit += 2; s.romeUnrest = Math.max(0, s.romeUnrest - 10); } // games and largesse
+  // spending: the dole and the Senate (a human spends by choice: actions.js)
+  if (!(E.kind === 'player' && s.opts.human)) {
+  if (s.romeUnrest > 40 && E.treasury > 400) { money(s, E, -150, 'grain dole'); s.romeUnrest = Math.max(0, s.romeUnrest - 15); }
+  if (E.road === 'wealth' && E.legit < 50 && E.treasury > 600) { money(s, E, -200, 'senators'); E.legit += 4; }
+  if (E.road === 'politics' && E.legit < 70 && E.treasury > 300) { money(s, E, -80, 'consulships'); E.legit += 2; } // consulships for friends
+  if (E.road === 'charisma' && E.legit < 60 && E.treasury > 250) { money(s, E, -100, 'games'); E.legit += 2; s.romeUnrest = Math.max(0, s.romeUnrest - 10); } // games and largesse
+  }
   // conspiracy
   const plot = Math.max(0, (40 - E.legit) / 120 + s.romeUnrest / 500) * s.diff.plotMult * Math.max(0.6, 1 - 0.05 * italyLegs) * (1 - 0.05 * E.stats[ROAD_STAT[E.road]]);
-  if (r.chance(plot)) {
+  E.whispers = plot * (E.informers === s.turn ? 0.5 : 1);
+  if (r.chance(E.whispers)) {
     // each road's own strength protects: the guard, the Senate's warnings, the crowd, paid informers
     const kill = 0.45 - 0.045 * E.stats[ROAD_STAT[E.road]];
     if (E.kind === 'player') s.stats.plots = (s.stats.plots || 0) + 1;

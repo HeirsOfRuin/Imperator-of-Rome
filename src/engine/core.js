@@ -4,15 +4,28 @@ import { CONFIG, ROAD_STAT, TOWN_MEN } from './config.js';
 import { ADJ, PROV, isWinter, route } from './graph.js';
 import { loyalty } from './world.js';
 
+export const KNOWN_NAMES = {
+  state: 'the Senate', player: 'you', barbarians: 'the barbarians',
+  galba: 'Servius Sulpicius Galba', otho: 'Marcus Salvius Otho', vitellius: 'Aulus Vitellius', vespasian: 'Titus Flavius Vespasianus',
+  vindex: 'Gaius Julius Vindex', macer: 'Lucius Clodius Macer', nymphidius: 'Nymphidius Sabinus', capito: 'Fonteius Capito', albinus: 'Lucceius Albinus',
+};
+const PRAENOMINA = ['Gaius', 'Lucius', 'Marcus', 'Publius', 'Quintus', 'Titus', 'Gnaeus', 'Sextus', 'Aulus', 'Decimus'];
+const NOMINA = ['Antonius', 'Caecilius', 'Cornelius', 'Fabius', 'Licinius', 'Pompeius', 'Valerius', 'Vettius', 'Pomponius', 'Annius', 'Didius', 'Hordeonius', 'Vipstanus', 'Tettius', 'Numisius', 'Dillius', 'Plotius', 'Arrius', 'Herennius', 'Vibius'];
+// A procedural legate's name, from his id alone (draws nothing from the RNG).
+export function legateName(id) {
+  let h = 0; for (const c of id) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  return `${PRAENOMINA[h % PRAENOMINA.length]} ${NOMINA[(h >>> 4) % NOMINA.length]}`;
+}
+
 export function newFaction(s, f) {
   const id = f.id || `F${s.nextId++}`;
   const F = {
-    id, name: f.name || id, kind: f.kind, road: f.road || 'military',
+    id, name: f.name || KNOWN_NAMES[id] || legateName(id), kind: f.kind, road: f.road || 'military',
     stats: { opes: 2, virtus: 2, auct: 2, gratia: 2, ...(f.stats || {}) },
     legit: f.legit ?? 20, treasury: f.treasury ?? 200, borrowed: 0,
     acclaimed: !!f.acclaimed, alive: true, anchored: !!f.anchored, base: f.base,
     target: f.target || 'local', stingy: !!f.stingy, patience: f.patience || 0,
-    comrades: f.comrades || null, allies: new Set(f.allies || []),
+    comrades: f.comrades || null, allies: Object.fromEntries((f.allies || []).map((x) => [x, true])),
     leaderArmy: null, levy: null, rebel: !!f.rebel, bornTurn: s.turn, zeroSince: -1,
     allowed: f.allowed || null, declareAt: f.declareAt ?? 4,
   };
@@ -72,7 +85,10 @@ export function rngs(s) {
   };
 }
 
-export function log(s, msg) { if (s.opts.trace) s.events.push(`t${s.turn} ${msg}`); }
+export function log(s, msg, loc) {
+  if (s.opts.trace) s.events.push(`t${s.turn} ${msg}`);
+  if (s.opts.human) s.dispatches.push({ t: s.turn, loc: loc || null, text: msg });
+}
 
 export const ownedLegions = (s, fid) => Object.values(s.legions).filter((l) => l.owner === fid);
 
@@ -84,7 +100,8 @@ export function hostile(s, a, b) {
   if (a === b) return false;
   const A = s.factions[a], B = s.factions[b];
   if (!A || !B) return false;
-  if (A.allies.has(b) || B.allies.has(a)) return false;
+  if (A.allies[b] || B.allies[a]) return false;
+  if (s.peace && s.peace[a < b ? a + '|' + b : b + '|' + a]) return false;
   if (a === 'state') return s.emperor !== b && (B.rebel || B.acclaimed);
   if (b === 'state') return s.emperor !== a && (A.rebel || A.acclaimed);
   return true;
@@ -162,7 +179,12 @@ export function negotiateChance(s, F, b, ratio) {
 
 export function debtTotal(s, fid) { return ownedLegions(s, fid).reduce((a, l) => a + l.debt, 0); }
 
-export function addMoney(F, x) { F.treasury += x; }
+// The only place money moves. The player's rows go to the ledger, so the
+// treasury can always be explained (and a test checks purse == ledger).
+export function money(s, F, x, why) {
+  F.treasury += x;
+  if (F.kind === 'player' && x) s.ledger.push([s.turn, Math.round(x * 100) / 100, why]);
+}
 
 export function takeLegion(s, l, fid, loyalty) {
   if (l.army) {

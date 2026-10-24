@@ -1,11 +1,12 @@
 import { CONFIG } from './config.js';
 import { ADJ, ITALY, PROV, distance, isWinter, route } from './graph.js';
-import { armyPower, flipProvince, hostile, killFaction, legionPower, levyLegion, log, makeArmy, ownedLegions, ownedProvinces, setDest, strengthOf, strongestFaction } from './core.js';
+import { money, armyPower, flipProvince, hostile, killFaction, legionPower, levyLegion, log, makeArmy, ownedLegions, ownedProvinces, setDest, strengthOf, strongestFaction } from './core.js';
 import { resolveEncounter } from './combat.js';
 import { rome } from './rome.js';
 
 export function factionTurn(s, F) {
   if (!F.alive) return;
+  if (F.kind === 'player' && s.opts.human) { humanUpkeep(s, F); return; }
   const r = s.R.ai;
   const legs = ownedLegions(s, F.id);
   const provs = ownedProvinces(s, F.id);
@@ -21,10 +22,10 @@ export function factionTurn(s, F) {
   const levyWant = F.road === 'military' ? 14 : 5;
   if (!F.levy && legs.length < levyWant && F.treasury > CONFIG.levyCost + reserve) {
     const at = provs.find((p) => ['legion', 'grain'].includes(PROV[p.id].tier) && p.unrest < 60) || provs.find((p) => PROV[p.id].tier !== 'proc' && p.unrest < 70);
-    if (at) { F.treasury -= CONFIG.levyCost; F.levy = { at: at.id, done: s.turn + CONFIG.levyMonths - (F.road === 'military' ? 1 : 0) - (at.id === 'AFR' ? 1 : 0) }; }
+    if (at) { money(s, F, -CONFIG.levyCost, 'levy'); F.levy = { at: at.id, done: s.turn + CONFIG.levyMonths - (F.road === 'military' ? 1 : 0) - (at.id === 'AFR' ? 1 : 0) }; }
   }
   // pay overdue debts if possible (stingy never does)
-  if (!F.stingy) for (const l of legs) if (l.overdue && l.debt > 0 && F.treasury - l.debt > reserve / 2) { F.treasury -= l.debt; l.debt = 0; l.overdue = false; l.loyalty += 4; }
+  if (!F.stingy) for (const l of legs) if (l.overdue && l.debt > 0 && F.treasury - l.debt > reserve / 2) { money(s, F, -l.debt, 'promise paid: ' + l.id); l.debt = 0; l.overdue = false; l.loyalty += 4; }
   // letters (politics road writes two)
   const letters = F.road === 'politics' ? 2 : 1;
   for (let i = 0; i < letters && F.treasury > CONFIG.letterCost && (F.rebel || F.kind !== 'player'); i++) {
@@ -33,7 +34,7 @@ export function factionTurn(s, F) {
     const cand = [...near].filter((pid) => s.prov[pid].owner === 'state' && !Object.values(s.legions).some((l) => l.loc === pid));
     if (!cand.length) break;
     const pid = r.pick(cand);
-    F.treasury -= CONFIG.letterCost;
+    money(s, F, -CONFIG.letterCost, 'letter');
     if (F.kind === 'player') s.stats.letters++;
     const p = 0.04 + 0.04 * F.stats.auct + (F.legit - 30) / 400 + (s.emperor === F.id ? 0.1 : 0);
     if (r.chance(Math.max(0.01, p))) { flipProvince(s, s.prov[pid], F.id, true); if (F.kind === 'player') s.stats.gainedBy.letter++; }
@@ -64,7 +65,7 @@ export function leaderArmyOf(s, F) {
 
 export function gatherForces(s, F, A, keepFrontier) {
   for (const l of ownedLegions(s, F.id)) {
-    if (l.army || l.id === 'PRAET') continue;
+    if (l.army || l.id === 'PRAET' || l.garrison) continue;
     const P = PROV[l.loc];
     if (keepFrontier && P.frontier && s.threat[P.frontier] > keepFrontier && s.prov[l.loc].owner === F.id) {
       const kept = ownedLegions(s, F.id).filter((x) => x.loc === l.loc && !x.army && x !== l).length;
@@ -189,6 +190,25 @@ export function playerStrategy(s, F) {
     return;
   }
   expand(s, F, A);
+}
+
+// A human player's month: what happens on its own (levies finishing, suspicion
+// cooling, legions joining the army). Every decision comes from actions.js.
+export function humanUpkeep(s, F) {
+  if (F.levy && F.levy.done <= s.turn) { levyLegion(s, F, F.levy.at, undefined); log(s, `A new legion is raised in ${F.levy.at}`, F.levy.at); F.levy = null; }
+  if (!F.ownsProvince) {
+    F.suspicion = Math.max(0, F.suspicion - 3);
+    if (F.suspicion >= 100) {
+      const here = F.base;
+      const mine = ownedLegions(s, F.id).filter((l) => l.loc === here).reduce((a, l) => a + l.men, 0);
+      const all = Object.values(s.legions).filter((l) => l.loc === here).reduce((a, l) => a + l.men, 0);
+      if (mine / Math.max(1, all) >= 0.74) flipProvince(s, s.prov[here], F.id, true);
+      else killFaction(s, F, 'recalled');
+    }
+    return;
+  }
+  const A = leaderArmyOf(s, F);
+  if (A) gatherForces(s, F, A, null);
 }
 
 export function hostileForAct1(s, b) { return b.prov.owner === 'state'; }

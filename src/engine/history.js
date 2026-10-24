@@ -1,5 +1,6 @@
 import { GROUP_OF_PROVINCE } from '../data/world.js';
 import { streamFor } from './rng.js';
+import { adjustStanding, standing, treatyBetween } from './diplomacy.js';
 import { CONFIG } from './config.js';
 import { ITALY, distance } from './graph.js';
 import { levyLegion, log, makeArmy, newFaction, newLegion, ownedLegions, ownedProvinces, takeLegion } from './core.js';
@@ -21,6 +22,7 @@ export function scheduleSpawns(s) {
 
 export function spawnFaction(s, spec, provinces, legionFilter) {
   const F = newFaction(s, { ...spec, acclaimed: spec.acclaimed ?? true, rebel: true });
+  for (const e of s.pendingEnmity || []) if (e === F.id) adjustStanding(s, F.id, 'player', -30);
   if (F.kind === 'hist') { for (const k in F.stats) F.stats[k] = Math.min(7, F.stats[k] + s.diff.rivalStat); F.treasury *= s.diff.rivalFunds; F.legit += 3 * s.diff.rivalStat; }
   for (const pid of provinces) {
     const P = s.prov[pid];
@@ -112,7 +114,7 @@ export function history(s) {
       O = spawnFaction(s, { id: 'otho', kind: 'hist', road: 'charisma', stats: { gratia: 5, auct: 2, opes: 1, virtus: 2 }, legit: 30, treasury: 300, base: b2, anchored: true, target: 'rome' }, [b2]);
     }
     if (O && !ownedLegions(s, O.id).length) newLegion(s, { station: O.base, group: 'italy', exp: 0.55, owner: O.id, loyalty: 60, levy: true });
-    if (G) G.allies.delete('otho');
+    if (G) delete G.allies.otho;
   }
   if (t === 11) s.threat.danube += 30; // Roxolani
   if (t === 12 && !s.minorSkip.albinus && ok('MCA')) {
@@ -159,7 +161,9 @@ export function openActIV(s) {
       const cb = c.leaderArmy && s.armies[c.leaderArmy] ? s.armies[c.leaderArmy].loc : c.base;
       const d = base && cb ? distance(base, cb) : 9;
       if (d > 3) continue;
-      const score = c.legit + ownedLegions(s, c.id).length * 6 - d * 4 + (c.kind === 'player' ? c.stats.auct + c.stats.gratia : 0);
+      const t = s.opts.noDiplomacy ? null : treatyBetween(s, f.id, c.id);
+      const score = c.legit + ownedLegions(s, c.id).length * 6 - d * 4 + (c.kind === 'player' ? c.stats.auct + c.stats.gratia : 0)
+        + (s.opts.noDiplomacy ? 0 : standing(s, f.id, c.id) / 5 + (t && t.type === 'alliance' ? 20 : 0));
       if (score > bestScore) { bestScore = score; best = c; }
     }
     const to = best ? best.id : 'state';

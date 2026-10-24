@@ -14,6 +14,7 @@ export function movement(s) {
       A.bypassed = Math.max(0, A.bypassed - 1);
     }
     if (A.wait > 0) { A.wait--; continue; }
+    if (s.pending && s.pending.some((p) => p.army === A.id)) continue;
     if (!A.path.length) { engage(s, A, A.loc, true); continue; }
     if (A.edgeLeft <= 0) {
       const e = ADJ[A.loc].find((x) => x.to === A.path[0]);
@@ -28,6 +29,7 @@ export function movement(s) {
     A.loc = A.path.shift();
     for (const id of A.legions) s.legions[id].loc = A.loc;
     const res = engage(s, A, A.loc, A.loc === A.dest || !A.path.length);
+    if (res === 'halt') continue;
     if (res === 'blocked' && s.armies[A.id]) { A.loc = A.from; for (const id of A.legions) s.legions[id].loc = A.loc; A.path.unshift(A.dest ? A.path[0] || A.dest : A.loc); A.path = route(A.loc, A.dest, winter); }
   }
   cull(s);
@@ -42,6 +44,10 @@ export function engage(s, A, pid, destination) {
     // armies first, then legions, then the garrison
     bodies.sort((a, b) => (a.kind === 'army' ? 0 : a.kind === 'legion' ? 1 : 2) - (b.kind === 'army' ? 0 : b.kind === 'legion' ? 1 : 2));
     const b = bodies[0];
+    if (F.kind === 'player' && s.opts.human) {
+      if (!s.pending.some((p) => p.army === A.id)) s.pending.push({ id: s.nextId++, army: A.id, prov: pid, destination, turn: s.turn });
+      return 'halt';
+    }
     // the state does not attack peaceful governors' provinces on its own
     if (F.kind === 'state' && b.kind === 'aux') break;
     const res = resolveEncounter(s, F, A, b, { destination });

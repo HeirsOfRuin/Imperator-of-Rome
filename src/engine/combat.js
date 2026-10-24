@@ -1,8 +1,91 @@
 import { CONFIG, FIGHT_RATIO, NEG_THRESHOLD, ROAD_PREFS } from './config.js';
 import { ADJ } from './graph.js';
-import { addMoney, armyPower, bodyGroup, bodyLoyalty, bodyMen, bodyPower, buyCost, cull, debtTotal, flipProvince, gainBody, hostile, killFaction, log, negotiateChance, ownedLegions, retreatLegion, setAside, takeLegion } from './core.js';
+import { money, armyPower, bodyGroup, bodyLoyalty, bodyMen, bodyPower, buyCost, cull, debtTotal, flipProvince, gainBody, hostile, killFaction, log, negotiateChance, ownedLegions, retreatLegion, setAside, takeLegion } from './core.js';
 import { hold } from './rome.js';
 
+// One resolver for encounters. The four options are separate functions; the
+// bot's resolveEncounter and the player's chooseOption both call them, so hand
+// play, AI and measurement can never disagree about what an option does.
+
+// What each option needs and costs, for the screen and for the bot.
+// Never says what will happen; only what it takes.
+export function optionInfo(s, F, A, b, ctx = {}) {
+  const myPower = A ? armyPower(s, A) : ctx.power;
+  const ratio = myPower / Math.max(1, bodyPower(s, b));
+  const cost = buyCost(s, F, b);
+  const neg = negotiateChance(s, F, b, ratio);
+  const holder = b.legion || b.town || b.prov || b.army;
+  const unbuyable = b.kind === 'army' || b.kind === 'town' || b.kind === 'raid';
+  return {
+    ratio,
+    buy: {
+      ok: !unbuyable && bodyLoyalty(s, b) < 85 && F.treasury >= cost,
+      why: unbuyable ? (b.kind === 'town' ? 'Towns cannot be bought' : b.kind === 'raid' ? 'Raiders take no money' : 'A whole army cannot be bought; buy its legions before battle') : bodyLoyalty(s, b) >= 85 ? 'Too loyal to be bought' : F.treasury < cost ? 'Not enough money' : '',
+      cost, promise: cost * CONFIG.promiseMult,
+      promiseOk: !unbuyable && bodyLoyalty(s, b) < 85,
+    },
+    negotiate: {
+      ok: b.kind !== 'raid' && (holder.negTried || {})[F.id] !== s.turn,
+      why: b.kind === 'raid' ? 'Raiders do not talk' : (holder.negTried || {})[F.id] === s.turn ? 'Already tried this month' : '',
+      chance: neg.p, kind: neg.kind,
+    },
+    fight: { ok: true, why: '', ratio },
+    bypass: {
+      ok: !(b.kind === 'army' || b.kind === 'raid' || ctx.destination || !A),
+      why: b.kind === 'army' ? 'An army will not let you pass' : b.kind === 'raid' ? 'Raiders must be driven off' : ctx.destination ? 'This is where you are going' : !A ? 'No army on the march' : '',
+    },
+  };
+}
+
+export function doBuy(s, F, A, b, ctx, promise) {
+  const isPlayer = F.kind === 'player';
+  const cost = buyCost(s, F, b);
+  if (!promise) money(s, F, -cost, "bought " + (b.legion ? b.legion.id : "a garrison"));
+  s.stats.buys += isPlayer ? 1 : 0;
+  if (isPlayer) s.stats.gainedBy.buy++;
+  if (promise) gainBody(s, F, b, 36 + 2 * F.stats.opes, cost * CONFIG.promiseMult, true);
+  else gainBody(s, F, b, 40 + 2 * F.stats.opes, 0, true);
+  if (ctx.act1) F.suspicion += 8 * s.diff.suspicionMult;
+  log(s, `${F.id} ${promise ? 'promises money to' : 'buys'} ${b.legion ? b.legion.id : b.prov ? 'the garrison of ' + b.prov.id : 'them'}`, b.legion ? b.legion.loc : b.prov?.id);
+  return 'cleared';
+}
+
+export function markNegotiation(s, F, b) {
+  const holder = b.legion || b.town || b.prov || b.army;
+  holder.negTried = holder.negTried || {};
+  holder.negTried[F.id] = s.turn;
+}
+
+export function doNegotiate(s, F, A, b, ctx) {
+  const isPlayer = F.kind === 'player';
+  const myPower = A ? armyPower(s, A) : ctx.power;
+  const ratio = myPower / Math.max(1, bodyPower(s, b));
+  const { p } = negotiateChance(s, F, b, ratio);
+  if (isPlayer) s.stats.negs++;
+  if (ctx.act1) F.suspicion += 5 * s.diff.suspicionMult;
+  const roll = s.R.combat.next();
+  if (roll < p) {
+    if (isPlayer) { s.stats.negOK++; s.stats.gainedBy.negotiate++; }
+    gainBody(s, F, b, 55 + 3 * Math.max(F.stats.auct, F.stats.gratia), 0);
+    F.legit = Math.min(100, F.legit + 1);
+    return 'cleared';
+  }
+  if (roll < p + (1 - p) * 0.35 && b.kind !== 'army') {
+    setAside(s, F, b, 3);
+    return 'aside';
+  }
+  F.legit = Math.max(0, F.legit - 1);
+  return 'refused';
+}
+
+export function doBypass(s, F, A, b) {
+  if (F.kind === 'player') s.stats.bypasses++;
+  setAside(s, F, b, 1);
+  A.bypassed = (A.bypassed || 0) + 1;
+  return 'aside';
+}
+
+// The bot (and every AI faction): its road's preferences, gated by thresholds.
 // F meets body b (with its army A, or as an Act I approach when A is null).
 // Returns 'cleared' | 'aside' | 'blocked' | 'lost'.
 export function resolveEncounter(s, F, A, b, ctx = {}) {
@@ -11,8 +94,6 @@ export function resolveEncounter(s, F, A, b, ctx = {}) {
   const ratio = myPower / Math.max(1, bodyPower(s, b));
   const reserve = ownedLegions(s, F.id).reduce((a, l) => a + l.men * CONFIG.payPerMan * l.payMult, 0);
   const aggr = F.kind === 'player' ? 1 : s.diff.aiAggr;
-  const isPlayer = F.kind === 'player';
-  let tried = false;
   const racing = A && A.dest === 'ROM' && !ctx.destination && (b.kind === 'town' || b.kind === 'aux');
   const order = racing && prefs.includes('bypass') ? ['bypass', ...prefs.filter((o) => o !== 'bypass')] : prefs;
   for (const opt of order) {
@@ -20,22 +101,9 @@ export function resolveEncounter(s, F, A, b, ctx = {}) {
       if (bodyLoyalty(s, b) >= 85 || b.kind === 'army' || b.kind === 'town' || b.kind === 'raid') continue;
       const cost = buyCost(s, F, b);
       const cap = F.road === 'wealth' ? 0.9 : 0.5;
-      if (cost <= (F.treasury - reserve) * cap * aggr) {
-        addMoney(F, -cost);
-        s.stats.buys += isPlayer ? 1 : 0;
-        if (isPlayer) s.stats.gainedBy.buy++;
-        gainBody(s, F, b, 40 + 2 * F.stats.opes, 0, true);
-        if (ctx.act1) F.suspicion += 8 * s.diff.suspicionMult;
-        return 'cleared';
-      }
+      if (cost <= (F.treasury - reserve) * cap * aggr) return doBuy(s, F, A, b, ctx, false);
       const promiseCap = (1 + F.stats.opes) * 220;
-      if ((F.road === 'wealth' || F.road === 'charisma' || !A) && debtTotal(s, F.id) + cost * CONFIG.promiseMult <= promiseCap * aggr) {
-        s.stats.buys += isPlayer ? 1 : 0;
-        if (isPlayer) s.stats.gainedBy.buy++;
-        gainBody(s, F, b, 36 + 2 * F.stats.opes, cost * CONFIG.promiseMult, true);
-        if (ctx.act1) F.suspicion += 8 * s.diff.suspicionMult;
-        return 'cleared';
-      }
+      if ((F.road === 'wealth' || F.road === 'charisma' || !A) && debtTotal(s, F.id) + cost * CONFIG.promiseMult <= promiseCap * aggr) return doBuy(s, F, A, b, ctx, true);
     } else if (opt === 'negotiate') {
       const holder = b.legion || b.town || b.prov || b.army;
       holder.negTried = holder.negTried || {};
@@ -43,38 +111,46 @@ export function resolveEncounter(s, F, A, b, ctx = {}) {
       holder.negTried[F.id] = s.turn;
       const { p } = negotiateChance(s, F, b, ratio);
       if (p < NEG_THRESHOLD[F.road] && !(F.allowed && F.allowed.length === 1)) continue;
-      b.tried = true; tried = true;
-      if (isPlayer) s.stats.negs++;
-      if (ctx.act1) F.suspicion += 5 * s.diff.suspicionMult;
-      const roll = s.R.combat.next();
-      if (roll < p) {
-        if (isPlayer) { s.stats.negOK++; s.stats.gainedBy.negotiate++; }
-        gainBody(s, F, b, 55 + 3 * Math.max(F.stats.auct, F.stats.gratia), 0);
-        F.legit = Math.min(100, F.legit + 1);
-        return 'cleared';
-      }
-      if (roll < p + (1 - p) * 0.35 && b.kind !== 'army') {
-        setAside(s, F, b, 3);
-        return 'aside';
-      }
-      F.legit = Math.max(0, F.legit - 1);
+      const r = doNegotiate(s, F, A, b, ctx);
+      if (r !== 'refused') return r;
     } else if (opt === 'fight') {
       const need = F.allowed && F.allowed.length === 1 ? 0.9 : FIGHT_RATIO[F.road] / Math.max(0.6, aggr);
       if (ratio < need) continue;
       if (ctx.act1 && F.kind === 'player') F.suspicion += 30 * s.diff.suspicionMult;
-      const r = fight(s, F, A, b, ctx);
-      return r;
+      return fight(s, F, A, b, ctx);
     } else if (opt === 'bypass') {
       if (b.kind === 'army' || b.kind === 'raid' || ctx.destination || !A) continue;
-      if (isPlayer) s.stats.bypasses++;
-      setAside(s, F, b, 1);
-      A.bypassed = (A.bypassed || 0) + 1;
-      return 'aside';
+      return doBypass(s, F, A, b);
     }
   }
   // nothing chosen: fight if not hopeless, else hold back
   if (ratio >= 1.0 && (!F.allowed || F.allowed.includes('fight') || F.allowed.length === 1)) return fight(s, F, A, b, ctx);
   return 'blocked';
+}
+
+// The player's own choice. Returns the result, or { error } if the option is
+// not available (the screen should never offer it, but the engine checks).
+export function chooseOption(s, F, A, b, opt, ctx = {}) {
+  const info = optionInfo(s, F, A, b, ctx);
+  if (opt === 'buy' || opt === 'promise') {
+    if (opt === 'buy' && !info.buy.ok) return { error: info.buy.why };
+    if (opt === 'promise' && !info.buy.promiseOk) return { error: info.buy.why };
+    return doBuy(s, F, A, b, ctx, opt === 'promise');
+  }
+  if (opt === 'negotiate') {
+    if (!info.negotiate.ok) return { error: info.negotiate.why };
+    markNegotiation(s, F, b);
+    return doNegotiate(s, F, A, b, ctx);
+  }
+  if (opt === 'fight') {
+    if (ctx.act1) F.suspicion += 30 * s.diff.suspicionMult;
+    return fight(s, F, A, b, ctx);
+  }
+  if (opt === 'bypass') {
+    if (!info.bypass.ok) return { error: info.bypass.why };
+    return doBypass(s, F, A, b);
+  }
+  return { error: 'Unknown option' };
 }
 
 export function fight(s, F, A, b, ctx) {
@@ -91,7 +167,7 @@ export function fight(s, F, A, b, ctx) {
       if (!target) continue;
       const cost = target.men * CONFIG.buyPerMan * (0.5 + target.loyalty / 100) * 1.2 / (1 + 0.08 * X.stats.opes);
       if (X.treasury > cost * 1.5) {
-        X.treasury -= cost;
+        money(s, X, -cost, 'bought ' + target.id + ' before battle');
         const XA = X === F ? A : b.army;
         takeLegion(s, target, X.id, 40); target.bought = true; target.army = XA.id; target.loc = XA.loc; XA.legions.push(target.id);
         log(s, `${X.id} buys ${target.id} from ${Y.id} before the battle`);
@@ -136,6 +212,7 @@ export function fight(s, F, A, b, ctx) {
   if (winner.kind === 'player') s.stats.fightsWon++;
   if (loser.kind === 'player') s.stats.fightsLost++;
   winner.legit = Math.min(100, winner.legit + (large ? (winner.road === 'military' ? 7 : 4) : 1));
+  if (large) winner.recentWin = s.turn;
   loser.legit = Math.max(0, loser.legit - (large ? 6 : 2));
   const winLegs = attWins ? attLegs : (b.kind === 'army' ? b.army.legions.map((id) => s.legions[id]) : b.kind === 'legion' ? [b.legion] : []);
   for (const l of winLegs) l.loyalty = Math.min(100, l.loyalty + (large ? 8 : 4));
@@ -154,7 +231,7 @@ export function fight(s, F, A, b, ctx) {
       // stormed and sacked: plunder for the men, a stain on the name
       b.town.men = 0;
       if (A) A.wait = 1;
-      addMoney(F, 40 + b.town.base * 0.05);
+      money(s, F, 40 + b.town.base * 0.05, "plunder");
       for (const l of attLegs) if (s.legions[l.id]) l.loyalty = Math.min(100, l.loyalty + 3);
       F.legit = Math.max(0, F.legit - 1);
       b.prov.unrest = Math.min(100, b.prov.unrest + 20);

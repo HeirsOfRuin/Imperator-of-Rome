@@ -1,3 +1,4 @@
+import { garrisonMult, levyExp } from './buildings.js';
 import { GROUP_OF_PROVINCE, BACKGROUND } from '../data/world.js';
 import { streamFor } from './rng.js';
 import { CLIENTS } from '../data/people.js';
@@ -30,8 +31,9 @@ const PRAENOMINA = ['Gaius', 'Lucius', 'Marcus', 'Publius', 'Quintus', 'Titus', 
 const NOMINA = ['Antonius', 'Caecilius', 'Cornelius', 'Fabius', 'Licinius', 'Pompeius', 'Valerius', 'Vettius', 'Pomponius', 'Annius', 'Didius', 'Hordeonius', 'Vipstanus', 'Tettius', 'Numisius', 'Dillius', 'Plotius', 'Arrius', 'Herennius', 'Vibius'];
 // A procedural legate's name, from his id alone (draws nothing from the RNG).
 export function legateName(id) {
-  let h = 0; for (const c of id) h = (h * 31 + c.charCodeAt(0)) >>> 0;
-  return `${PRAENOMINA[h % PRAENOMINA.length]} ${NOMINA[(h >>> 4) % NOMINA.length]}`;
+  let h = 0x811c9dc5; for (const c of id) h = Math.imul(h ^ c.charCodeAt(0), 0x01000193) >>> 0;
+  h = Math.imul(h ^ (h >>> 15), 0x2c1b3c6d) >>> 0;
+  return `${PRAENOMINA[h % PRAENOMINA.length]} ${NOMINA[(h >>> 8) % NOMINA.length]}`;
 }
 
 export function newFaction(s, f) {
@@ -161,7 +163,7 @@ export function bodyPower(s, b) {
   if (b.kind === 'raid') return b.raid.men * 0.75;
   if (b.kind === 'army') return armyPower(s, b.army);
   if (b.kind === 'legion') return legionPower(s, b.legion) * 1.1;
-  return b.prov.aux * 0.7 * 1.2;
+  return b.prov.aux * 0.7 * 1.2 * garrisonMult(b.prov);
 }
 
 export function bodyLoyalty(s, b) {
@@ -248,6 +250,7 @@ export function flipProvince(s, P, fid, keepAux) {
   P.unrest = Math.min(100, P.unrest + 10);
   if (!keepAux) P.aux = Math.round(PROV[P.id].aux * 0.4);
   P.standAside = {};
+  P.governor = null; P.ownedSince = s.turn;
   for (const t of P.towns) { t.men = Math.round(t.base * 0.7); t.standAside = {}; }
   const F = s.factions[fid];
   if (F.kind !== 'state') F.rebel = true;
@@ -287,7 +290,7 @@ export function killFaction(s, F, cause) {
 }
 
 export function levyLegion(s, F, pid, id) {
-  newLegion(s, { id, station: pid, group: GROUP_OF_PROVINCE[pid] || 'italy', exp: 0.6, owner: F.id, loyalty: 62, levy: true });
+  newLegion(s, { id, station: pid, group: GROUP_OF_PROVINCE[pid] || 'italy', exp: levyExp(s.prov[pid]), owner: F.id, loyalty: 62, levy: true });
 }
 
 export function makeArmy(s, owner, loc, legionIds, dest) {

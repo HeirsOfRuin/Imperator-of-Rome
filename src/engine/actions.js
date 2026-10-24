@@ -1,3 +1,4 @@
+import { build, appoint, holdGames, levyCostMult, levyMonthsOff } from './buildings.js';
 // Everything a human player can do. The UI calls act(state, action) and reads
 // view(state); it computes nothing itself. Each action checks what the screen
 // should already have checked, and returns { ok } or { error } in words.
@@ -32,7 +33,8 @@ export function act1Targets(s) {
   const menMine = mine.reduce((a, l) => a + l.men, 0), menAll = menMine + others.reduce((a, l) => a + l.men, 0);
   const out = others.filter((l) => !(l.standAside.player > s.turn)).map((l) => ({ kind: 'legion', legion: l }));
   const governorOpen = menMine / Math.max(1, menAll) >= 0.74 || !others.length;
-  if (governorOpen && s.prov[here].owner === 'state') out.push({ kind: 'aux', prov: s.prov[here] });
+  // the last obstacle: whoever holds the province (the Senate's governor, or a usurper who took it)
+  if (governorOpen && s.prov[here].owner !== 'player') out.push({ kind: 'aux', prov: s.prov[here] });
   return { bodies: out, mine, menMine, menAll, governorOpen, power: mine.reduce((a, l) => a + legionPower(s, l), 0) };
 }
 
@@ -60,8 +62,9 @@ export function act(s, a) {
       if (PROV[a.pid].tier === 'proc') return { error: 'Too few citizens here to raise a legion' };
       if (P.unrest >= 70) return { error: 'The province is too unruly to recruit' };
       if (F.treasury < CONFIG.levyCost) return { error: 'Not enough money' };
-      money(s, F, -CONFIG.levyCost, 'levy');
-      F.levy = { at: a.pid, done: s.turn + CONFIG.levyMonths - (a.pid === 'AFR' ? 1 : 0) };
+      if (F.treasury < CONFIG.levyCost * levyCostMult(P)) return { error: 'Not enough money' };
+      money(s, F, -CONFIG.levyCost * levyCostMult(P), 'levy');
+      F.levy = { at: a.pid, done: s.turn + CONFIG.levyMonths - (a.pid === 'AFR' ? 1 : 0) - levyMonthsOff(P) };
       return { ok: true };
     }
     case 'garrison': {
@@ -95,7 +98,8 @@ export function act(s, a) {
       const res = chooseOption(s, F, null, b, a.option, { act1: true, power: t.power, men: t.menMine, legions: t.mine });
       if (res && res.error) return res;
       F.approached = s.turn;
-      if (b.kind === 'aux' && (res === 'cleared' || res === 'aside')) { flipProvince(s, s.prov[F.base], 'player', true); log(s, `The governor yields. ${PROV[F.base].name} is yours.`, F.base); }
+      if (b.kind === 'aux' && (res === 'cleared' || res === 'aside') && s.prov[F.base].owner !== 'player') flipProvince(s, s.prov[F.base], 'player', true);
+      if (b.kind === 'aux' && s.prov[F.base].owner === 'player') log(s, 'act1 won', F.base, `${PROV[F.base].name} is yours.`);
       return { ok: true, result: res };
     }
     case 'acclaim':
@@ -169,11 +173,14 @@ export function act(s, a) {
       if (a.spend === 'senators') F.legit = Math.min(100, F.legit + 4);
       if (a.spend === 'consulships') F.legit = Math.min(100, F.legit + 2);
       if (a.spend === 'games') { F.legit = Math.min(100, F.legit + 2); s.romeUnrest = Math.max(0, s.romeUnrest - 10); }
-      if (a.spend === 'informers') F.informers = s.turn; // halves this month's whispers
+      if (a.spend === 'informers') F.informers = s.turn + 1; // they work through the coming month, when a warned plot would strike
       return { ok: true };
     }
     case 'battleOrder': case 'battleReserve': case 'battleCav': case 'battleLegate': case 'battleRound': case 'battleAuto': case 'battleDusk':
       return battleAct(s, a);
+    case 'build': return build(s, F, a.pid, a.building);
+    case 'governor': return appoint(s, F, a.pid, a.index);
+    case 'games': return holdGames(s, F, a.pid);
     case 'endMonth': return endMonth(s);
     default: return { error: 'Unknown action ' + a.type };
   }

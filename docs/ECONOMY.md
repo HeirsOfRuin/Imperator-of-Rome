@@ -56,10 +56,9 @@ historical figure and let paying it be the impossible choice.
 | Road repairs (via) | 120k | 2 | 2k | Faster marches through the province; +5% revenue |
 | Granaries (horrea) | 150k | 3 | 3k | Grain stored against shortages; unrest buffer |
 | Harbour works (portus) | 220k | 4 | 4k | Winter sailing less costly; grain ships move in winter |
-| Stone camp (castra) | 200k | 4 | 4k | Garrison defence; loyalty of legions stationed here |
+| Stone camp (castra) | 200k | 4 | 4k | Garrison defence; legions stationed here grow loyal and refill their ranks (absorbs the planned arms workshop) |
 | Signal towers (limes) | 140k | 3 | 3k | Frontier threat rises more slowly |
-| Arms workshop (fabrica) | 180k | 3 | 4k | New legions start more experienced; pila restocked |
-| Levy office (dilectus) | 100k | 2 | 2k | Levies faster and cheaper here |
+| Levy office (dilectus) | 100k | 2 | 2k | Levies faster, cheaper and better drilled here |
 | Mint (moneta) | 300k | 5 | 6k | Strikes coin with your face: money and legitimacy (only Lugdunum, Rome, Antioch, Alexandria and Spain had mints) |
 | Temple of the imperial cult | 180k | 4 | 3k | Legitimacy; unrest down |
 | Amphitheatre games | 120k each time | 1 | — | Unrest down sharply; charisma road's tool |

@@ -1,3 +1,4 @@
+import { harbourAt } from './buildings.js';
 import { ADJ, edgeCost, isWinter, route } from './graph.js';
 import { bodiesAt, cull, flipProvince, hostile } from './core.js';
 import { resolveEncounter } from './combat.js';
@@ -19,12 +20,13 @@ export function movement(s) {
     if (A.edgeLeft <= 0) {
       const e = ADJ[A.loc].find((x) => x.to === A.path[0]);
       if (!e) { A.path = []; continue; }
-      A.edgeLeft = edgeCost(e, winter);
+      A.harboured = winter && e.kind === 'sea' && (harbourAt(s, A.loc) || harbourAt(s, e.to));
+      A.edgeLeft = edgeCost(e, winter && !A.harboured);
       A.edgeKind = e.kind;
     }
     A.edgeLeft--;
     if (A.edgeLeft > 0) continue;
-    if (winter && A.edgeKind !== 'land') for (const id of A.legions) s.legions[id].men = Math.round(s.legions[id].men * (A.edgeKind === 'alps' ? 0.94 : 0.97));
+    if (winter && A.edgeKind !== 'land' && !A.harboured) for (const id of A.legions) s.legions[id].men = Math.round(s.legions[id].men * (A.edgeKind === 'alps' ? 0.94 : 0.97));
     A.from = A.loc;
     A.loc = A.path.shift();
     for (const id of A.legions) s.legions[id].loc = A.loc;

@@ -1,3 +1,4 @@
+import { revenueMult, revenueFlat, grainBonus, threatMult, unrestDelta, has } from './buildings.js';
 import { FRONTIERS } from '../data/world.js';
 import { CONFIG } from './config.js';
 import { PROV, distance, isWinter } from './graph.js';
@@ -13,7 +14,7 @@ export function economy(s) {
     for (const P of ownedProvinces(s, F.id)) {
       if (P.breachUntil > s.turn) continue;
       const tax = P.tax === 'heavy' ? 1.4 : P.tax === 'extort' ? 1.8 : P.tax === 'light' ? 0.85 : 1;
-      inc += PROV[P.id].rev * tax * (P.unrest > 60 ? 0.5 : 1);
+      inc += (PROV[P.id].rev * revenueMult(P) + revenueFlat(P)) * tax * (P.unrest > 60 ? 0.5 : 1);
     }
     if (s.emperor === F.id) for (const P of ownedProvinces(s, 'state')) inc += PROV[P.id].rev * CONFIG.stateShare;
     money(s, F, inc, 'revenue');
@@ -42,7 +43,7 @@ export function economy(s) {
       const ships = P.grainPolicy === 'ship' && P.owner !== s.emperor;
       if (P.owner !== s.emperor && P.owner !== 'state' && !ships) continue;
       if (P.grainPolicy === 'hold' && P.owner === s.emperor) continue;
-      g += PROV[P.id].grain * (winter ? 0.5 : 1);
+      g += (PROV[P.id].grain + grainBonus(P)) * (winter && !has(P, 'harbour') ? 0.5 : 1); // a harbour keeps the grain fleet sailing in winter
       if (ships && PROV[P.id].grain) money(s, s.factions[P.owner], 8 * PROV[P.id].grain, 'grain sold to Rome');
     }
     const E = s.factions[s.emperor];
@@ -73,6 +74,7 @@ export function loyalty(s) {
     if (inLeader) d += 0.3 * F.stats.gratia;
     if (l.overdue && l.debt > 0) d -= 6;
     if (l.loc === l.station && !l.army) d += 0.5;
+    if (!l.army && has(s.prov[l.loc], 'castra') && s.prov[l.loc].owner === l.owner) d += 1;
     if (l.bought) d -= 0.7; // bought men stay bought only while the money lasts
     if (F.legit > 60) d += 0.5;
     l.loyalty = Math.max(0, Math.min(100, l.loyalty + d));
@@ -130,7 +132,7 @@ export function frontiers(s) {
   for (const [k, f] of Object.entries(FRONTIERS)) {
     const present = Object.values(s.legions).filter((l) => f.provinces.includes(l.loc)).length;
     const deficit = Math.max(0, f.normal - present) / f.normal;
-    s.threat[k] += f.base * (0.3 + 2.5 * deficit) * s.diff.frontierMult - (deficit === 0 ? 4 : 0);
+    s.threat[k] += f.base * (0.3 + 2.5 * deficit) * s.diff.frontierMult * threatMult(s, f.provinces) - (deficit === 0 ? 4 : 0);
     s.threat[k] = Math.max(0, Math.min(120, s.threat[k]));
     if (s.threat[k] >= 100) {
       s.threat[k] = 40;
@@ -149,7 +151,7 @@ export function frontiers(s) {
   }
   for (const P of Object.values(s.prov)) {
     if (P.owner === 'state') { P.unrest = Math.max(0, P.unrest - 2); continue; }
-    P.unrest += P.tax === 'heavy' ? 3 : P.tax === 'extort' ? 9 : P.tax === 'light' ? -5 : -3;
+    P.unrest += (P.tax === 'heavy' ? 3 : P.tax === 'extort' ? 9 : P.tax === 'light' ? -5 : -3) + unrestDelta(P);
     P.unrest = Math.max(0, Math.min(100, P.unrest));
     if (P.unrest > 85 && !Object.values(s.legions).some((l) => l.loc === P.id && l.owner === P.owner)) {
       const O = s.factions[P.owner];

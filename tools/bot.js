@@ -42,6 +42,7 @@ function month(s) {
   if (s.outcome) return;
   const v2 = view(s);
   if (v2.act1) {
+    if (!v2.act1.bodies.length && !v2.act1.approached) fail(`Act I has no way forward (${v2.act1.province}, ${v2.month})`);
     const b = v2.act1.bodies[0];
     if (b && !v2.act1.approached) {
       const pick = b.options.find((o) => o.ok && o.id === 'negotiate' && /Likely|Even/.test(o.cost)) || b.options.find((o) => o.ok && o.id === 'buy') || b.options.find((o) => o.ok && o.id === 'promise');

@@ -13,12 +13,22 @@ const PNAME = Object.fromEntries(PROVINCES.map((p) => [p.id, p.name]));
 const $app = document.getElementById('app');
 let S = null, V = null;
 let screen = 'title';          // title | newgame | game
-let tab = 'map', sel = null, modalOff = -1, toastT = null;
+let tab = 'map', sel = null, modalOff = -1, toastT = null, pTab = 'overview';
 const ng = { difficulty: 'centurion', start: 'GSU', road: 'politics', custom: false, bg: {}, name: '' };
-const map = new MapView((pid) => { sel = pid; render(); });
+const map = new MapView((pid) => { if (sel !== pid) pTab = 'overview'; sel = pid; render(); });
 let bChip = 'sector:1', bSel = null, bRoundSeen = -1;
 const field = new FieldView((id) => { bSel = id; render(); });
 
+const ICON8 = {
+  road: '<rect x="0" y="5" width="8" height="2" fill="#B9A981"/><rect x="1" y="5" width="1" height="1" fill="#6C6762"/><rect x="5" y="6" width="1" height="1" fill="#6C6762"/>',
+  granary: '<rect x="1" y="3" width="6" height="5" fill="#B0803A"/><rect x="0" y="2" width="8" height="1" fill="#8C6239"/><rect x="3" y="5" width="2" height="3" fill="#2B2826"/>',
+  harbour: '<rect x="0" y="5" width="8" height="3" fill="#5E7088"/><rect x="2" y="1" width="1" height="4" fill="#2B2826"/><rect x="3" y="1" width="3" height="3" fill="#F6F4F0"/>',
+  castra: '<rect x="1" y="3" width="6" height="4" fill="#6C6762"/><rect x="1" y="2" width="1" height="1" fill="#6C6762"/><rect x="3" y="2" width="2" height="1" fill="#6C6762"/><rect x="6" y="2" width="1" height="1" fill="#6C6762"/><rect x="3" y="5" width="2" height="2" fill="#2B2826"/>',
+  limes: '<rect x="3" y="1" width="2" height="7" fill="#6C6762"/><rect x="2" y="0" width="4" height="1" fill="#C8102E"/>',
+  dilectus: '<rect x="3" y="1" width="2" height="2" fill="#2B2826"/><rect x="2" y="3" width="4" height="4" fill="#C8102E"/><rect x="1" y="4" width="1" height="3" fill="#C9A227"/>',
+  mint: '<circle cx="4" cy="4" r="3" fill="#C9A227"/><rect x="3" y="3" width="2" height="2" fill="#E8D48A"/>',
+  temple: '<rect x="0" y="7" width="8" height="1" fill="#B9BDC3"/><rect x="1" y="3" width="1" height="4" fill="#DADDE1"/><rect x="3" y="3" width="1" height="4" fill="#DADDE1"/><rect x="5" y="3" width="1" height="4" fill="#DADDE1"/><rect x="0" y="2" width="8" height="1" fill="#B9BDC3"/><rect x="2" y="1" width="4" height="1" fill="#B9BDC3"/>',
+};
 const esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const A = (o) => `data-a='${JSON.stringify(o).replace(/'/g, '&#39;')}'`;
 const n = (x) => Number(x).toLocaleString('en-US');
@@ -91,7 +101,7 @@ const ICONS = {
 };
 function nav() {
   const tabs = [['map', 'Map'], ['realm', 'Provinces'], ['army', 'Army'], ['diplomacy', 'Diplomacy'], ...(V.rome ? [['rome', 'Rome']] : []), ['dispatches', 'News'], ['legate', 'Legate']];
-  const dots = { army: V.pending.length > 0 || (V.act1 && !V.act1.approached), diplomacy: V.offers.length > 0 };
+  const dots = { army: V.pending.length > 0 || (V.act1 && !V.act1.approached), diplomacy: V.offers.length > 0, rome: !!(V.rome && V.rome.plotWarned) };
   return `<nav class="nav"><div class="nav-in">${tabs.map(([id, label]) => `<button data-tab="${id}" class="${tab === id ? 'on' : ''}"><svg viewBox="0 0 24 24">${ICONS[id]}</svg>${dots[id] ? '<i class="dot"></i>' : ''}${label}</button>`).join('')}</div></nav>`;
 }
 
@@ -202,14 +212,27 @@ function provinceSheet(pid) {
       <div class="stats4"><div><b>${curTax ? curTax.rev : p.rev}k</b>revenue</div><div><b>${p.grain}</b>grain</div><div class="${p.unrest > 50 ? 'bad' : ''}"><b>${p.unrest}</b>unrest</div><div class="${p.threat >= 60 ? 'bad' : ''}"><b>${p.threat ?? '–'}</b>${p.frontier ? 'frontier' : 'no frontier'}</div></div>
       ${p.breach ? '<p class="note" style="color:var(--crimson)">The frontier has broken here: no revenue for some months.</p>' : ''}
       ${p.mine ? `
+        <div class="tabs">${[['overview', 'Overview'], ['buildings', 'Buildings'], ['forces', 'Forces'], ['governor', 'Governor']].map(([id, l]) => `<button class="${pTab === id ? 'on' : ''}" data-act="ptab" data-ptab="${id}">${l}</button>`).join('')}</div>
+        ${pTab === 'overview' ? `
         <div class="label">Taxes</div><div class="seg">${p.taxes.map((t) => `<button class="${p.tax === t.level ? 'on' : ''}" ${A({ type: 'tax', pid, level: t.level })}>${t.level === 'extort' ? 'Extort' : t.level[0].toUpperCase() + t.level.slice(1)}<small>${t.rev}k · ${t.unrest > 0 ? '+' : ''}${t.unrest}</small></button>`).join('')}</div>
-        <p class="note">Revenue a month · unrest change a month.</p>
+        <p class="note">Revenue a month · unrest change a month${p.revMult ? ` · works and governor add ${p.revMult}%` : ''}.</p>
         ${p.grain ? `<div class="label">Grain</div><div class="seg three">${[['ship', 'Ship to Rome'], ['hold', 'Hold'], ['embargo', 'Embargo']].map(([k, l]) => `<button class="${p.grainPolicy === k ? 'on' : ''}" ${A({ type: 'grain', pid, policy: k })}>${l}</button>`).join('')}</div><p class="note">Shipping sells grain to whoever rules Rome. An embargo starves him.</p>` : ''}
-        <div class="label">Forces</div>
-        ${myLegsHere.length ? myLegsHere.map((l) => `<div class="row"><div>${esc(l.name)}<small>${n(l.men)} men · loyalty ${l.loyalty}${l.army ? ' · with the army' : ''}</small></div><button class="btn small" ${A({ type: 'garrison', legionId: l.id, on: !l.garrison })}>${l.garrison ? 'Join the army' : 'Garrison here'}</button></div>`).join('') : '<p class="note">No legion stationed here.</p>'}
-        <button class="btn block" ${A({ type: 'levy', pid })} ${p.canLevy ? '' : 'disabled'}>Raise a legion here · 320k, 4 months</button>
+        <div class="label">The people</div>
+        <button class="btn block" ${A({ type: 'games', pid })} ${p.games ? 'disabled' : ''}>${p.games ? 'Games given this month' : `Give games · ${p.gamesCost}k · unrest falls sharply`}</button>
+        ` : pTab === 'buildings' ? `
+        <div class="label">Works · ${p.buildings.length + (p.building ? 1 : 0)} of ${p.slots} sites</div>
+        <div class="slots">${Array.from({ length: p.slots }, (_, i) => { const b = p.buildings[i]; if (b) return `<div class="slot built" title="${esc(b.does)}"><svg viewBox="0 0 8 8">${ICON8[b.id] || ''}</svg>${esc(b.name)}</div>`; if (i === p.buildings.length && p.building) return `<div class="slot building"><svg viewBox="0 0 8 8">${ICON8[p.building.id] || ''}</svg>${esc(p.building.name)}<br><small>ready ${esc(p.building.done)}</small></div>`; return '<div class="slot">Empty site</div>'; }).join('')}</div>
+        ${p.works.filter((w) => !w.built).map((w) => `<button class="opt" ${A({ type: 'build', pid, building: w.id })} ${w.why ? 'disabled' : ''}><b>${esc(w.name)} <span>${w.cost}k · ${w.months} month${w.months === 1 ? '' : 's'} · ${w.upkeep}k a month</span></b><em>${esc(w.why || w.does)}</em></button>`).join('')}
+        ` : pTab === 'forces' ? `
+        ${myLegsHere.length ? myLegsHere.map((l) => `<div class="row"><div>${esc(l.name)}<small>${n(l.men)} men · loyalty ${l.loyalty}${l.army ? ' · with the army' : ' · stationed here'}</small></div><button class="btn small" ${A({ type: 'garrison', legionId: l.id, on: !l.garrison })}>${l.garrison ? 'Join the army' : 'Garrison here'}</button></div>`).join('') : '<p class="note">No legion stationed here.</p>'}
+        <div class="row">Auxiliary garrison<span>${n(p.aux)} men</span></div>
+        <button class="btn block" ${A({ type: 'levy', pid })} ${p.canLevy ? '' : 'disabled'}>Raise a legion here · ${p.levyCost}k, ${p.levyMonths} months</button>
         ${pl.levy ? `<p class="note">A legion is being raised in ${esc(PNAME[pl.levy.at])}: ready ${esc(pl.levy.done)}.</p>` : ''}
-        <div class="label">Buildings</div><p class="note">Roads, granaries, harbours, a stone camp and more arrive in Phase 2.</p>
+        ` : `
+        ${p.governor ? `<div class="card gold"><h3>${esc(p.governor.name)} <small>${esc(p.governor.trait)}${p.governor.friend ? ' · your friend' : ''}</small></h3><p class="note">${esc(p.governor.does)}</p></div>` : '<p class="note">No governor: a deputy keeps the books, and nothing more.</p>'}
+        <div class="label">Men who would take the post</div>
+        ${p.candidates.map((c) => `<button class="opt ${p.governor && p.governor.name === c.name ? 'on' : ''}" ${A({ type: 'governor', pid, index: c.index })}><b>${esc(c.name)} <span>${esc(c.trait)}${c.friend ? ' · a friend from your past' : ''}</span></b><em>${esc(c.does)}</em></button>`).join('')}
+        `}
       ` : `
         <div class="label">Who is here</div>
         <div class="row">Garrison<span>${n(p.aux)} auxiliaries</span></div>
@@ -256,12 +279,31 @@ function act1Card(compact) {
       ${compact && !a.approached && a.bodies.length > 1 ? '<p class="note">More in the Army tab.</p>' : ''}
     </div>`;
 }
+const EMBLEM = {
+  legion: '<rect x="3" y="0" width="2" height="8" fill="#2B2826"/><rect x="1" y="1" width="6" height="1" fill="#C9A227"/><rect x="2" y="0" width="4" height="1" fill="#E8D48A"/><rect x="2" y="3" width="4" height="3" fill="#C8102E"/>',
+  army: '<rect x="1" y="0" width="1" height="8" fill="#2B2826"/><rect x="5" y="0" width="1" height="8" fill="#2B2826"/><rect x="2" y="1" width="2" height="2" fill="#C8102E"/><rect x="6" y="1" width="2" height="2" fill="#C8102E"/><rect x="0" y="5" width="8" height="3" fill="#6C6762"/>',
+  aux: '<rect x="1" y="2" width="6" height="6" fill="#B9A981"/><rect x="2" y="4" width="4" height="4" fill="#6C6762"/><rect x="3" y="0" width="2" height="2" fill="#2B2826"/>',
+  town: '<rect x="0" y="3" width="8" height="5" fill="#B9BDC3"/><rect x="0" y="2" width="1" height="1" fill="#B9BDC3"/><rect x="2" y="2" width="1" height="1" fill="#B9BDC3"/><rect x="5" y="2" width="1" height="1" fill="#B9BDC3"/><rect x="7" y="2" width="1" height="1" fill="#B9BDC3"/><rect x="3" y="5" width="2" height="3" fill="#2B2826"/>',
+  raid: '<rect x="1" y="1" width="2" height="6" fill="#6C6762"/><rect x="4" y="2" width="3" height="4" fill="#8C1C2B"/>',
+};
+const KIND_WORD = { legion: 'A legion', army: 'An army', aux: 'A garrison of auxiliaries', town: 'A walled town', raid: 'Raiders' };
 function bodyCard(b, mk, noBypass) {
-  return `<div class="card gold"><h3>${esc(b.who)} <small>${b.men ? n(b.men) + ' men' : ''}${b.loyalty != null ? ` · loyalty ${b.loyalty}` : ''}</small></h3>
-    ${b.comrades ? '<p class="note">You served with this legion as a tribune.</p>' : ''}
-    ${b.options.filter((o) => !(noBypass && o.id === 'bypass')).map((o) => `<button class="opt" data-choice ${A(mk(o.id))} ${o.ok ? '' : 'disabled'}><b>${esc(o.label)} <span>${esc(o.cost)}</span></b>${o.ok ? '' : `<em>${esc(o.why)}</em>`}</button>`).join('')}
+  const facts = [
+    b.men ? `${n(b.men)} men` : null,
+    b.loyalty != null ? `loyal to ${b.ownerName === 'you' ? 'you' : esc(b.ownerName || 'the Senate')} (${b.loyalty})` : b.ownerName ? `holds for ${esc(b.ownerName)}` : null,
+  ].filter(Boolean);
+  return `<div class="card gold enc"><div class="enc-head"><svg viewBox="0 0 8 8" class="emb">${EMBLEM[b.kind] || ''}</svg><div><h3>${esc(b.who)}</h3><div class="note">${KIND_WORD[b.kind] || ''}${facts.length ? ' · ' + facts.join(' · ') : ''}</div></div></div>
+    ${b.comrades ? '<p class="note good-note">You served with this legion as a tribune. Old comrades listen.</p>' : ''}
+    ${b.options.filter((o) => !(noBypass && o.id === 'bypass')).map((o) => `<button class="opt" data-choice ${A(mk(o.id))} ${o.ok ? '' : 'disabled'}><b>${esc(o.label)} <span>${esc(o.cost)}</span></b>${o.ok ? `<em>${esc(OPT_HINT[o.id] || '')}</em>` : `<em>${esc(o.why)}</em>`}</button>`).join('')}
   </div>`;
 }
+const OPT_HINT = {
+  buy: 'Bought men stay bought while the money lasts.',
+  promise: 'A debt: unpaid past its day, they turn sour.',
+  negotiate: 'Costs nothing but a little standing if refused; they may simply stand aside.',
+  fight: 'Men lost now take months to replace.',
+  bypass: 'Faster, but every enemy left behind threatens your supply.',
+};
 function armyScreen() {
   if (V.act1) return `<div class="screen"><div class="card" style="padding:0;overflow:hidden">${act1Card(false)}</div>${V.legions.map(legionRow).join('')}</div>`;
   const ar = V.army, p = V.player;
@@ -319,10 +361,11 @@ function romeScreen() {
     <div class="card"><div class="row">Emperor<span>${esc(r.youRule ? 'You' : r.emperor)}</span></div><div class="row">Rome held by<span>${esc(r.holder === 'you' ? 'You' : r.holder)}</span></div>
     ${r.youRule ? `<div class="row">Months held<span>${r.hold} of ${r.holdTarget}</span></div><div class="meter purple"><i style="width:${(100 * r.hold) / r.holdTarget}%"></i></div>` : ''}</div>
     ${r.youRule ? `<div class="card gold"><h3>Whispers</h3><div class="meter red"><i style="width:${Math.min(100, r.whispers * 4)}%"></i></div>
-      <p class="note">${r.whispers >= 15 ? 'Names are spoken in the Praetorian camp. A plot is forming.' : r.whispers >= 5 ? 'There is talk in the Senate. Keep your friends close.' : 'Rome is quiet, for now.'} Low legitimacy and an angry city feed the whispers; legions in Italy and your own strengths quiet them.</p></div>
+      ${r.plotWarned ? `<p class="note" style="color:var(--crimson)"><b>A plot will be tried next month.</b> ${r.informersPaid ? 'Your informers are at work.' : 'Pay informers now and they may uncover it in time.'}</p>` : ''}
+      <p class="note">${r.whispers >= 15 ? 'Names are spoken in the Praetorian camp.' : r.whispers >= 5 ? 'There is talk in the Senate. Keep your friends close.' : 'Rome is quiet, for now.'} Low legitimacy and an angry city feed the whispers; legions in Italy and your own strengths quiet them.</p></div>
       <div class="card"><div class="row">The crowd<span class="pill ${r.unrest > 60 ? 'bad' : ''}">${r.unrest}</span></div><div class="row">Grain<span>${r.grain} of ${r.grainNeed}</span></div>${r.praetorians ? `<div class="row">Praetorians<span>loyalty ${r.praetorians.loyalty}${r.praetorians.debt ? ` · owed ${r.praetorians.debt}k` : ''}</span></div>` : ''}</div>
       <div class="label">Spend</div>
-      ${[['dole', 'Grain dole · 150k', 'The crowd calms.'], ['senators', 'Buy senators · 200k', 'Legitimacy +4.'], ['consulships', 'Consulships for friends · 80k', 'Legitimacy +2.'], ['games', 'Games and largesse · 100k', 'Legitimacy +2; the crowd calms.'], ['informers', 'Pay informers · 120k', 'Halves this month\'s whispers.']].map(([k, l, d]) => `<button class="opt" ${A({ type: 'rome', spend: k })}><b>${l}</b><em>${d}</em></button>`).join('')}`
+      ${[['dole', 'Grain dole · 150k', 'The crowd calms.'], ['senators', 'Buy senators · 200k', 'Legitimacy +4.'], ['consulships', 'Consulships for friends · 80k', 'Legitimacy +2.'], ['games', 'Games and largesse · 100k', 'Legitimacy +2; the crowd calms.'], ['informers', 'Pay informers · 120k', 'They may uncover a plot before it strikes.']].map(([k, l, d]) => `<button class="opt" ${A({ type: 'rome', spend: k })}><b>${l}</b><em>${d}</em></button>`).join('')}`
       : '<p class="note">Take Rome, with no enemy legions in Rome, Etruria or Campania, and the Senate will recognise you if your legitimacy is 25 or more, or if five of your legions stand in Italy.</p>'}
   </div>`;
 }
@@ -385,6 +428,7 @@ document.addEventListener('click', async (e) => {
   else if (a === 'end-turn') doAct({ type: 'endMonth' });
   else if (a === 'bedriacum') { S = bedriacum({ seed: (Date.now() % 100000) + 1 }); screen = 'game'; tab = 'map'; bChip = 'sector:1'; bSel = null; refresh(); }
   else if (a === 'bchip') { bChip = t.dataset.chip; render(); }
+  else if (a === 'ptab') { pTab = t.dataset.ptab; render(); }
   else if (a === 'acclaim') doAct({ type: 'acclaim' });
   else if (a === 'decree') doAct({ type: 'decree' });
   else if (a === 'close') { modalOff = V.turn; render(); }

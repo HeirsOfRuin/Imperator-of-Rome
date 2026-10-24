@@ -89,7 +89,7 @@ h2.sec:first-child { margin-top: 4px; }
 .bar h3 { font-size: 17px; color: var(--gold-2); }
 .bar .sub { font-size: 12.5px; color: var(--silver-2); }
 .bar .x { border: 0; background: none; color: var(--silver-2); font-size: 22px; line-height: 1; padding: 0 2px; }
-.sheet .body { padding: 6px 14px 14px; }
+.sheet .body { padding: 6px 14px 84px; }
 .label { font-size: 11.5px; color: var(--grey-6); margin: 12px 0 6px; text-transform: uppercase; letter-spacing: .06em; }
 
 /* modal */
@@ -145,3 +145,17 @@ canvas.field { display: block; width: 100%; image-rendering: pixelated; touch-ac
 .blog { font-size: 13px; background: var(--grey-0); border-left: 3px solid var(--gold); padding: 6px 10px; margin: 8px 0; display: grid; gap: 3px; }
 .trumpets { padding: 12px; font-size: 16px; }
 .ccard { margin-top: 8px; }
+
+.tabs { display: flex; border-bottom: 1px solid var(--silver-2); margin: 4px 0 6px; }
+.tabs button { flex: 1; border: 0; background: none; padding: 9px 0; font-size: 13.5px; color: var(--grey-6); }
+.tabs button.on { color: var(--purple); border-bottom: 2px solid var(--scarlet); font-weight: 600; }
+.slots { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 4px; }
+.slot { aspect-ratio: 1; max-width: 100%; border-radius: 9px; background: var(--grey-1); border: 1px dashed var(--silver); display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 10.5px; line-height: 1.2; color: var(--grey-6); text-align: center; padding: 3px; }
+.slot.built { background: var(--grey-0); border: 1px solid var(--gold); color: var(--grey-9); }
+.slot.building { border: 1px solid var(--purple-2); color: var(--purple); }
+.slot svg { width: 28px; height: 28px; image-rendering: pixelated; shape-rendering: crispEdges; margin-bottom: 3px; }
+
+.enc-head { display: flex; gap: 10px; align-items: center; margin-bottom: 4px; }
+.emb { width: 36px; height: 36px; flex: none; image-rendering: pixelated; shape-rendering: crispEdges; background: var(--grey-1); border-radius: 8px; padding: 4px; }
+.enc h3 { font-size: 16px; }
+.good-note { color: #6B5413; }

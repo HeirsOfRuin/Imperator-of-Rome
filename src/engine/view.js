@@ -6,6 +6,8 @@ import { CONFIG } from './config.js';
 import { PROV, ITALY, distance } from './graph.js';
 import { legionName, bodiesAt, debtTotal, ownedLegions, ownedProvinces, strengthOf, armyPower } from './core.js';
 import { optionInfo } from './combat.js';
+import { BUILDINGS, SLOTS, TRAITS, GAMES_COST } from '../data/buildings.js';
+import { canBuild, candidates, revenueMult, revenueFlat, unrestDelta, levyCostMult, levyMonthsOff } from './buildings.js';
 import { CAPITALS } from '../data/seeds.js';
 import { ORDERS, orderBlocked, sectorState, frontOf, ROUNDS_DAY, ROUNDS_MAX } from './battle.js';
 import { act1Targets, bodyKey, lettersAllowed, TAX_LEVELS } from './actions.js';
@@ -144,9 +146,18 @@ export function view(s) {
       towns: q.towns.filter((t) => t.men > 0).length, frontier: d.frontier || null, threat: d.frontier ? Math.round(s.threat[d.frontier]) : null,
       breach: q.breachUntil > s.turn, mine,
       legions: legs.map((l) => ({ id: l.id, name: legionName(l), owner: l.owner, men: l.men })),
-      taxes: mine ? TAX_LEVELS.map((t) => ({ level: t, rev: k(d.rev * ({ light: 0.85, normal: 1, heavy: 1.4, extort: 1.8 }[t])), unrest: { light: -5, normal: -3, heavy: 3, extort: 9 }[t] })) : null,
+      taxes: mine ? TAX_LEVELS.map((t) => ({ level: t, rev: k((d.rev * revenueMult(q) + revenueFlat(q)) * ({ light: 0.85, normal: 1, heavy: 1.4, extort: 1.8 }[t]) * (q.unrest > 60 ? 0.5 : 1)), unrest: { light: -5, normal: -3, heavy: 3, extort: 9 }[t] + unrestDelta(q) })) : null,
       canLevy: mine && !P.levy && d.tier !== 'proc' && q.unrest < 70 && P.treasury >= CONFIG.levyCost,
       canLetter: P.rebel && q.owner === 'state' && !legs.length && myProvs.some((m) => distance(m.id, d.id) <= 1),
+      buildings: (q.buildings || []).map((id) => ({ id, name: BUILDINGS[id].name, latin: BUILDINGS[id].latin, does: BUILDINGS[id].does })),
+      building: q.building ? { id: q.building.id, name: BUILDINGS[q.building.id].name, done: monthName(q.building.done) } : null,
+      slots: SLOTS[d.tier],
+      works: mine ? Object.entries(BUILDINGS).map(([id, B]) => ({ id, name: B.name, latin: B.latin, cost: B.cost, months: B.months, upkeep: B.upkeep, does: B.does, why: canBuild(s, P, d.id, id), built: (q.buildings || []).includes(id) })) : null,
+      governor: q.governor ? { name: q.governor.name, trait: q.governor.trait, does: TRAITS[q.governor.trait].does, friend: q.governor.friend || null } : null,
+      candidates: mine ? candidates(s, d.id).map((c, i) => ({ index: i, name: c.name, trait: c.trait, does: TRAITS[c.trait].does, friend: c.friend || null })) : null,
+      revMult: Math.round((revenueMult(q) - 1) * 100), revFlat: revenueFlat(q), unrestMod: unrestDelta(q),
+      gamesCost: GAMES_COST, games: q.gamesTurn === s.turn,
+      levyCost: k(CONFIG.levyCost * levyCostMult(q)), levyMonths: CONFIG.levyMonths - (d.id === 'AFR' ? 1 : 0) - levyMonthsOff(q),
     };
   });
 
@@ -184,7 +195,7 @@ export function view(s) {
   const rome = s.actIVOpen || s.emperor === 'player' ? {
     emperor: s.emperor ? s.factions[s.emperor].name : 'none', youRule: s.emperor === 'player', holder: s.factions[s.prov.ROM.owner]?.name,
     unrest: Math.round(s.romeUnrest), hold: P.hold || 0, holdTarget: s.diff.hold,
-    whispers: P.whispers ? Math.round(P.whispers * 100) : 0,
+    whispers: P.whispers ? Math.round(P.whispers * 100) : 0, plotWarned: !!(P.plot && P.plot.warned), informersPaid: P.informers === s.turn + 1,
     praetorians: s.legions.PRAET ? { owner: s.factions[s.legions.PRAET.owner].name, loyalty: Math.round(s.legions.PRAET.loyalty), debt: k(s.legions.PRAET.debt) } : null,
     grain: Object.values(s.prov).filter((q) => PROV[q.id].grain && (q.owner === s.emperor || q.owner === 'state')).reduce((a, q) => a + PROV[q.id].grain, 0), grainNeed: CONFIG.romeGrainNeed,
   } : null;

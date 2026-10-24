@@ -1,3 +1,4 @@
+import { aiProvinces, levyCostMult, levyMonthsOff } from './buildings.js';
 import { CONFIG } from './config.js';
 import { ADJ, ITALY, PROV, distance, isWinter, route } from './graph.js';
 import { who, money, armyPower, flipProvince, hostile, killFaction, legionPower, levyLegion, log, makeArmy, ownedLegions, ownedProvinces, setDest, strengthOf, strongestFaction } from './core.js';
@@ -22,7 +23,7 @@ export function factionTurn(s, F) {
   const levyWant = F.road === 'military' ? 14 : 5;
   if (!F.levy && legs.length < levyWant && F.treasury > CONFIG.levyCost + reserve) {
     const at = provs.find((p) => ['legion', 'grain'].includes(PROV[p.id].tier) && p.unrest < 60) || provs.find((p) => PROV[p.id].tier !== 'proc' && p.unrest < 70);
-    if (at) { money(s, F, -CONFIG.levyCost, 'levy'); F.levy = { at: at.id, done: s.turn + CONFIG.levyMonths - (F.road === 'military' ? 1 : 0) - (at.id === 'AFR' ? 1 : 0) }; }
+    if (at) { money(s, F, -CONFIG.levyCost * levyCostMult(at), 'levy'); F.levy = { at: at.id, done: s.turn + CONFIG.levyMonths - (F.road === 'military' ? 1 : 0) - (at.id === 'AFR' ? 1 : 0) - levyMonthsOff(at) }; }
   }
   // pay overdue debts if possible (stingy never does)
   if (!F.stingy) for (const l of legs) if (l.overdue && l.debt > 0 && F.treasury - l.debt > reserve / 2) { money(s, F, -l.debt, 'promise paid: ' + l.id); l.debt = 0; l.overdue = false; l.loyalty += 4; }
@@ -40,6 +41,7 @@ export function factionTurn(s, F) {
     if (r.chance(Math.max(0.01, p))) { flipProvince(s, s.prov[pid], F.id, true); if (F.kind === 'player') s.stats.gainedBy.letter++; }
   }
 
+  aiProvinces(s, F);
   if (F.kind === 'player') playerStrategy(s, F);
   else rivalStrategy(s, F);
 }
@@ -160,7 +162,8 @@ export function playerStrategy(s, F) {
       const o = others.filter((l) => !(l.standAside.player > s.turn)).sort((a, c) => a.loyalty - c.loyalty)[0];
       if (o) b = { kind: 'legion', legion: o };
     }
-    if (b && (b.kind !== 'aux' || hostileForAct1(s, b))) {
+    if (!b && others.length === 0 && s.prov[here].owner !== F.id) b = { kind: 'aux', prov: s.prov[here] };
+    if (b && (b.kind !== 'aux' || s.prov[here].owner !== F.id)) {
       const legsHere = mine.filter((l) => l.loc === here);
       const res = resolveEncounter(s, F, null, b, { act1: true, power: ctxPower, men: menMine, legions: legsHere });
       if (b.kind === 'aux' && (res === 'cleared' || res === 'aside')) flipProvince(s, s.prov[here], F.id, res !== 'cleared' ? true : true);

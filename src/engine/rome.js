@@ -57,13 +57,29 @@ export function hold(s) {
   }
   // conspiracy
   const plot = Math.max(0, (40 - E.legit) / 120 + s.romeUnrest / 500) * s.diff.plotMult * Math.max(0.6, 1 - 0.05 * italyLegs) * (1 - 0.05 * E.stats[ROAD_STAT[E.road]]);
-  E.whispers = plot * (E.informers === s.turn ? 0.5 : 1);
-  if (r.chance(E.whispers)) {
-    // each road's own strength protects: the guard, the Senate's warnings, the crowd, paid informers
-    const kill = 0.45 - 0.045 * E.stats[ROAD_STAT[E.road]];
+  E.whispers = plot;
+  const best = E.stats[ROAD_STAT[E.road]];
+  if (E.plot && E.plot.strikes <= s.turn) {
+    // the plot strikes: informers paid this month may uncover it first
+    const foiled = r.chance(E.informers === s.turn ? 0.6 + 0.04 * best : 0.08);
     if (E.kind === 'player') s.stats.plots = (s.stats.plots || 0) + 1;
-    if (r.chance(kill)) { killFaction(s, E, 'murdered by conspirators'); return; }
-    E.legit = Math.max(0, E.legit - 3);
+    E.plot = null;
+    if (foiled) {
+      E.legit = Math.min(100, E.legit + 2);
+      log(s, `plot foiled ${E.id}`, 'ROM', E.kind === 'player' ? 'Your informers name the conspirators before they can strike. The Senate is very quiet.' : null);
+    } else {
+      // each road's own strength protects: the guard, the Senate's warnings, the crowd, paid informers
+      const kill = 0.45 - 0.045 * best;
+      if (r.chance(kill)) { killFaction(s, E, 'murdered by conspirators'); return; }
+      E.legit = Math.max(0, E.legit - 3);
+      log(s, `plot fails ${E.id}`, 'ROM', E.kind === 'player' ? 'Daggers in the palace corridor. You live; the conspirators die. Rome whispers louder.' : null);
+    }
+  } else if (!E.plot && r.chance(plot)) {
+    // a plot forms; with luck, someone tells you a month ahead
+    const warned = r.chance(Math.min(0.95, 0.5 + 0.07 * E.stats.auct + ((E.friends || []).includes('freedman') ? 0.3 : 0)));
+    E.plot = { strikes: s.turn + 1, warned };
+    if (warned) log(s, `plot forming ${E.id}`, 'ROM', E.kind === 'player' ? 'A freedman brings you names whispered in the Praetorian camp. Something will be tried next month. Informers might uncover it in time.' : null);
+    if (warned && !(E.kind === 'player' && s.opts.human) && E.treasury > 160) { money(s, E, -120, 'informers'); E.informers = s.turn + 1; }
   }
   // generals: legions away from the emperor, disloyal, go over to a living rival
   const rivals = Object.values(s.factions).filter((f) => f.alive && f.kind === 'hist' && f.id !== E.id);

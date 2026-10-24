@@ -1,3 +1,4 @@
+import { buildingsTurn, governorsTurn } from './buildings.js';
 import { PROVINCES, LEGIONS, FRONTIERS, BACKGROUND } from '../data/world.js';
 const BACKGROUND_STAGES = BACKGROUND.map((b) => b.stage);
 import { streamFor } from './rng.js';
@@ -59,6 +60,8 @@ export function step(s) {
   history(s);
   for (const t of s.spawnAt) if (t === s.turn && !s.actIVOpen) spawnProcedural(s);
   economy(s);
+  buildingsTurn(s);
+  governorsTurn(s);
   loyalty(s);
   frontiers(s);
   raids(s);

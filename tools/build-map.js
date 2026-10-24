@@ -60,9 +60,9 @@ const km = (lon1, lat1, lon2, lat2) => {
 function yAt(line, x) { for (let i = 0; i < line.length - 1; i++) { const [x1, y1] = line[i], [x2, y2] = line[i + 1]; if ((x - x1) * (x - x2) <= 0 && x1 !== x2) return y1 + (y2 - y1) * (x - x1) / (x2 - x1); } return null; }
 function xAt(line, y) { for (let i = 0; i < line.length - 1; i++) { const [x1, y1] = line[i], [x2, y2] = line[i + 1]; if ((y - y1) * (y - y2) <= 0 && y1 !== y2) return x1 + (x2 - x1) * (y - y1) / (y2 - y1); } return null; }
 function beyondFrontier(lon, lat) {
-  if (lat > 47.5 && lat < 52.0) { const rx = xAt(RHINE, lat); if (rx !== null && lon > rx + 0.05 && lon < 12 && !(lat < 49 && lon > 8.5)) return true; }
+  if (lat > 47.5 && lat < 52.4) { const rx = xAt(RHINE, lat); if (rx !== null && lon > rx + 0.05 && lon < 12 && !(lat < 49 && lon > 8.5)) return true; }
   if (lon > 8.5 && lon < 29.6) { const dy = yAt(DANUBE, lon); if (dy !== null && lat > dy + 0.05) return true; }
-  if (lat > 52.2 && lon > 4.5) return true; // Frisia and beyond
+  if (lat > 51.95 && lon > 4.5) return true; // Frisia and beyond: outside the empire
   return false;
 }
 

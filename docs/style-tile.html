@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Imperator style tile</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --purple: #4E1A45; --purple-2: #7A3770;
+  --scarlet: #C8102E; --crimson: #8C1C2B;
+  --gold: #C9A227; --gold-2: #E8D48A;
+  --silver: #B9BDC3; --silver-2: #DADDE1;
+  --grey-9: #2B2826; --grey-6: #6C6762; --grey-1: #ECEAE6; --grey-0: #F6F4F0;
+  --ochre: #B0803A; --slate: #5E7088; --olive: #7A7A45; --bronze: #8C6239;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--grey-1); color: var(--grey-9); font: 15px/1.45 'Source Sans 3', system-ui, sans-serif; }
+main { max-width: 420px; margin: 0 auto; padding: 16px; }
+h1, h2, h3 { font-family: 'Cinzel', serif; font-weight: 700; letter-spacing: .04em; margin: 0; }
+h1 { font-size: 22px; color: var(--purple); }
+h2 { font-size: 15px; color: var(--purple); margin: 28px 0 10px; border-bottom: 1px solid var(--gold); padding-bottom: 4px; }
+.note { color: var(--grey-6); font-size: 13px; margin: 4px 0 0; }
+.swatches { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.sw { border-radius: 6px; overflow: hidden; background: var(--grey-0); font-size: 11px; }
+.sw i { display: block; height: 40px; }
+.sw span { display: block; padding: 3px 5px; color: var(--grey-6); }
+.phone { background: var(--grey-0); border-radius: 14px; overflow: hidden; box-shadow: 0 1px 0 var(--silver), 0 6px 18px rgba(43,40,38,.12); }
+.bar { background: var(--purple); color: var(--gold-2); padding: 10px 14px; border-bottom: 2px solid var(--gold); }
+.bar h3 { font-size: 16px; color: var(--gold-2); }
+.bar .sub { font-size: 12px; color: var(--silver-2); }
+.top { display: flex; justify-content: space-between; font-size: 12px; background: var(--grey-9); color: var(--silver-2); padding: 5px 12px; font-variant-numeric: tabular-nums; }
+.top b { color: var(--gold-2); font-weight: 600; }
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); text-align: center; padding: 10px 6px; gap: 4px; border-bottom: 1px solid var(--silver-2); }
+.stats div { font-size: 11px; color: var(--grey-6); }
+.stats b { display: block; font-size: 16px; color: var(--grey-9); font-variant-numeric: tabular-nums; }
+.stats .bad b { color: var(--crimson); }
+.tabs { display: flex; border-bottom: 1px solid var(--silver-2); }
+.tabs span { flex: 1; text-align: center; padding: 8px 0; font-size: 13px; color: var(--grey-6); }
+.tabs .on { color: var(--purple); border-bottom: 2px solid var(--scarlet); font-weight: 600; }
+.pad { padding: 12px 14px; }
+.label { font-size: 12px; color: var(--grey-6); margin: 10px 0 6px; text-transform: uppercase; letter-spacing: .06em; }
+.seg { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+.seg button { border: 1px solid var(--silver); background: var(--grey-0); border-radius: 6px; padding: 6px 2px; font: inherit; font-size: 12px; color: var(--grey-9); }
+.seg button small { display: block; color: var(--grey-6); font-size: 11px; }
+.seg .on { background: var(--scarlet); border-color: var(--scarlet); color: #fff; }
+.seg .on small { color: var(--gold-2); }
+.slots { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.slot { aspect-ratio: 1; border-radius: 8px; background: var(--grey-1); border: 1px dashed var(--silver); display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 10px; color: var(--grey-6); text-align: center; padding: 2px; }
+.slot.built { background: var(--grey-0); border: 1px solid var(--gold); color: var(--grey-9); }
+.slot.building { border: 1px solid var(--purple-2); color: var(--purple); }
+.slot svg { width: 26px; height: 26px; image-rendering: pixelated; margin-bottom: 2px; }
+.row { display: flex; justify-content: space-between; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--grey-1); font-size: 14px; }
+.row small { color: var(--grey-6); display: block; font-size: 12px; }
+.pill { font-size: 11px; padding: 2px 7px; border-radius: 10px; background: var(--grey-1); color: var(--grey-6); }
+.pill.good { background: #E9E3CC; color: #6B5413; }
+.pill.bad { background: #F1DCDF; color: var(--crimson); }
+.btn { display: block; width: 100%; border: 0; border-radius: 8px; padding: 10px; font: inherit; font-weight: 600; margin-top: 10px; }
+.btn.primary { background: var(--scarlet); color: #fff; }
+.btn.quiet { background: var(--grey-1); color: var(--grey-9); border: 1px solid var(--silver); }
+.opt { border: 1px solid var(--silver); border-radius: 10px; padding: 9px 11px; margin-top: 8px; background: var(--grey-0); }
+.opt h4 { margin: 0; font-size: 15px; display: flex; justify-content: space-between; }
+.opt h4 span { font-weight: 400; font-size: 13px; color: var(--grey-6); }
+.opt p { margin: 2px 0 0; font-size: 13px; color: var(--grey-6); }
+.opt.off { opacity: .55; }
+.opt.off p { color: var(--crimson); }
+canvas { display: block; width: 100%; image-rendering: pixelated; background: #6E7A4E; }
+.chips { display: flex; gap: 4px; padding: 8px 10px 0; overflow-x: auto; }
+.chip { flex: none; font-size: 12px; padding: 5px 9px; border-radius: 14px; background: var(--grey-1); border: 1px solid var(--silver); color: var(--grey-9); }
+.chip.on { background: var(--purple); border-color: var(--purple); color: var(--gold-2); }
+.chip em { font-style: normal; color: var(--grey-6); font-size: 11px; }
+.chip.on em { color: var(--silver-2); }
+.orders { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 8px 10px; }
+.orders button { border: 1px solid var(--silver); background: var(--grey-0); border-radius: 8px; padding: 7px 4px; font: inherit; font-size: 13px; font-weight: 600; color: var(--grey-9); }
+.orders button small { display: block; font-weight: 400; font-size: 11px; color: var(--grey-6); }
+.orders .on { border-color: var(--scarlet); box-shadow: inset 0 0 0 1px var(--scarlet); }
+.orders .dis { opacity: .5; }
+.card { margin: 0 10px; border: 1px solid var(--gold); border-radius: 10px; padding: 8px 10px; background: var(--grey-0); font-size: 13px; min-height: 92px; }
+.card h4 { margin: 0 0 4px; font-size: 14px; }
+.meter { height: 7px; border-radius: 4px; background: var(--grey-1); overflow: hidden; margin: 2px 0 5px; }
+.meter i { display: block; height: 100%; }
+.mrow { display: grid; grid-template-columns: 80px 1fr 44px; gap: 6px; align-items: center; font-size: 12px; color: var(--grey-6); }
+.mrow b { color: var(--grey-9); font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+.whisper { display: flex; gap: 10px; align-items: center; }
+.whisper .meter { flex: 1; height: 10px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Imperator: style tile</h1>
+  <p class="note">The palette, type and three screens at phone size. Mock-ups for the calibration stage: not the final art, and the buttons are only for show.</p>
+
+  <h2>Palette</h2>
+  <div class="swatches">
+    <div class="sw"><i style="background:var(--purple)"></i><span>Purple: Rome, Senate</span></div>
+    <div class="sw"><i style="background:var(--scarlet)"></i><span>Scarlet: you</span></div>
+    <div class="sw"><i style="background:var(--crimson)"></i><span>Crimson: danger</span></div>
+    <div class="sw"><i style="background:var(--gold)"></i><span>Gold: money, honour</span></div>
+    <div class="sw"><i style="background:var(--silver)"></i><span>Silver: neutral</span></div>
+    <div class="sw"><i style="background:var(--grey-9)"></i><span>Iron: text</span></div>
+    <div class="sw"><i style="background:var(--grey-6)"></i><span>Stone: quiet text</span></div>
+    <div class="sw"><i style="background:var(--grey-1);border-bottom:1px solid var(--silver)"></i><span>Marble: ground</span></div>
+  </div>
+  <p class="note">Rivals, muted under the main palette:</p>
+  <div class="swatches" style="margin-top:6px">
+    <div class="sw"><i style="background:var(--ochre)"></i><span>Galba</span></div>
+    <div class="sw"><i style="background:var(--slate)"></i><span>Otho</span></div>
+    <div class="sw"><i style="background:var(--olive)"></i><span>Vitellius</span></div>
+    <div class="sw"><i style="background:var(--bronze)"></i><span>Vespasian</span></div>
+  </div>
+
+  <h2>Province</h2>
+  <div class="phone">
+    <div class="top"><span>Aug AD 68</span><span>Treasury <b>1,240k</b></span><span>Legit. <b>34</b></span><span>Owed <b>380k</b></span></div>
+    <div class="bar"><h3>Germania Superior</h3><div class="sub">Yours · Governor: Q. Sabinus (able, ambitious)</div></div>
+    <div class="stats">
+      <div><b>96k</b>revenue</div><div><b>0</b>grain</div><div class="bad"><b>41</b>unrest</div><div class="bad"><b>62</b>Rhine threat</div>
+    </div>
+    <div class="tabs"><span class="on">Overview</span><span>Buildings</span><span>Forces</span><span>Governor</span></div>
+    <div class="pad">
+      <div class="label">Taxes</div>
+      <div class="seg">
+        <button>Light<small>72k · −3</small></button>
+        <button class="on">Normal<small>80k · −1</small></button>
+        <button>Heavy<small>112k · +3</small></button>
+        <button>Extort<small>144k · +9</small></button>
+      </div>
+      <div class="label">Buildings · 4 slots (full list on the Buildings tab)</div>
+      <div class="slots">
+        <div class="slot built"><svg viewBox="0 0 8 8"><rect x="1" y="3" width="6" height="4" fill="#6C6762"/><rect x="1" y="2" width="1" height="1" fill="#6C6762"/><rect x="3" y="2" width="2" height="1" fill="#6C6762"/><rect x="6" y="2" width="1" height="1" fill="#6C6762"/><rect x="3" y="5" width="2" height="2" fill="#2B2826"/></svg>Stone camp</div>
+        <div class="slot building"><svg viewBox="0 0 8 8"><rect x="3" y="1" width="2" height="6" fill="#7A3770"/><rect x="2" y="1" width="4" height="1" fill="#C9A227"/></svg>Signal towers<br>2 months</div>
+        <div class="slot">+ Build</div>
+        <div class="slot">+ Build</div>
+      </div>
+      <div class="opt"><h4>Granaries <span>150k · 3 months</span></h4><p>Grain stored against a bad month. Unrest rises more slowly. Upkeep 3k.</p></div>
+      <div class="opt off"><h4>Mint <span>300k · 5 months</span></h4><p>Only where Rome struck coin: Lugdunum, Rome, Antioch, Alexandria, Spain.</p></div>
+    </div>
+  </div>
+
+  <h2>Encounter</h2>
+  <div class="phone">
+    <div class="bar"><h3>The road at Vindonissa</h3><div class="sub">XXI Rapax stands across your march</div></div>
+    <div class="pad">
+      <div class="row"><div>XXI Rapax<small>4,600 men · loyal to the Senate · served on the Rhine</small></div><span class="pill bad">Loyalty 64</span></div>
+      <div class="opt"><h4>Buy them <span>410k now, or 615k promised</span></h4><p>Bought men stay bought while the money lasts.</p></div>
+      <div class="opt"><h4>Appeal to old comrades <span>Charisma 4 · your tribunate</span></h4><p>You served on the Rhine. A failed appeal costs a little standing.</p></div>
+      <div class="opt"><h4>Fight <span>Your 3 legions against 1</span></h4><p>Men lost now cannot be replaced for months. Rhine legions remember.</p></div>
+      <div class="opt off"><h4>March past</h4><p>Not possible: Vindonissa is where you are going.</p></div>
+    </div>
+  </div>
+
+  <h2>The field</h2>
+  <div class="phone">
+    <div class="bar"><h3>Bedriacum</h3><div class="sub">Round 3 of 6 · afternoon · Caecina commands (impetuous)</div></div>
+    <canvas id="field" width="384" height="224"></canvas>
+    <div class="chips" id="chips"></div>
+    <div class="orders" id="orders"></div>
+    <div class="card" id="card"><h4>Tap a cohort</h4><span style="color:var(--grey-6)">Its legion, men left, morale, endurance and pila.</span></div>
+    <div class="pad"><button class="btn primary">Sound the trumpets</button><button class="btn quiet">Leave it to the legates</button></div>
+  </div>
+
+  <h2>Rome, Act IV</h2>
+  <div class="phone">
+    <div class="bar"><h3>Rome</h3><div class="sub">Month 7 of 24 · recognised by the Senate</div></div>
+    <div class="pad">
+      <div class="label">Whispers</div>
+      <div class="whisper"><div class="meter"><i style="width:58%;background:linear-gradient(90deg,var(--gold),var(--crimson))"></i></div><b style="color:var(--crimson)">Rising</b></div>
+      <p class="note">Your freedman Narcissus hears names in the Praetorian camp. A plot could form next month.</p>
+      <div class="row"><div>Grain<small>Africa yours, Egypt held by Vespasian</small></div><span class="pill bad">8 of 12</span></div>
+      <div class="row"><div>Praetorians<small>Donative 1,500k, due in 1 month</small></div><span class="pill">Loyalty 48</span></div>
+      <div class="row"><div>The crowd<small>Games last month</small></div><span class="pill good">Calm</span></div>
+      <button class="btn primary">Pay informers · 120k</button>
+    </div>
+  </div>
+  <p class="note" style="margin:16px 0 30px">Light marble grounds carry most screens; purple is kept for headers and Rome, scarlet for you and your main action, crimson for danger, gold for money and honour.</p>
+</main>
+<script>
+// Field mock: cohorts as blocks, an advance, a pila volley, tap for a card.
+const cv = document.getElementById('field'), g = cv.getContext('2d');
+const S = 4, W = 96, H = 56;
+const C = { grass: '#6E7A4E', grass2: '#76824F', vine: '#4F5A36', road: '#B9A981', river: '#5E7088', you: '#C8102E', youRim: '#E8D48A', foe: '#7A7A45', foeRim: '#2B2826', gold: '#C9A227' };
+const cohorts = [];
+function legion(name, x0, y0, side, short) {
+  // triplex acies: 4-3-3
+  const lines = [[0, 4], [1, 3], [2, 3]];
+  let n = 1;
+  for (const [li, count] of lines) for (let i = 0; i < count; i++) {
+    const x = x0 + i * 6 + (li ? 3 : 0), y = y0 + side * li * 5;
+    cohorts.push({ name, short, n: n++, line: li + 1, side, x, y, men: 480 - Math.floor(Math.random() * (li ? 40 : 120)), morale: li ? 80 : 55 + Math.floor(Math.random() * 25), end: li ? 95 : 40 + Math.floor(Math.random() * 30), pila: li ? 2 : 1 });
+  }
+}
+legion('XIII Gemina', 14, 34, 1, 'XIII');
+legion('VII Galbiana', 52, 34, 1, 'VII');
+legion('XXI Rapax', 14, 20, -1, 'XXI');
+legion('V Alaudae', 52, 20, -1, 'V');
+const cav = [{ x: 4, y: 36, side: 1 }, { x: 84, y: 36, side: 1 }, { x: 5, y: 16, side: -1 }, { x: 84, y: 17, side: -1 }];
+let t = 0, sel = null;
+function px(x, y, w, h, c) { g.fillStyle = c; g.fillRect(x * S, y * S, w * S, h * S); }
+function draw() {
+  t++;
+  px(0, 0, W, H, C.grass);
+  for (let y = 0; y < H; y += 3) for (let x = (y % 2) * 2; x < W; x += 7) px(x, y, 1, 1, C.grass2);
+  for (let y = 4; y < 14; y += 2) px(70, y, 24, 1, C.vine); // vineyards
+  for (let x = 0; x < W; x++) px(x, 26 + Math.round(Math.sin(x / 9) * 1), 1, 2, C.road); // Via Postumia
+  for (let x = 0; x < W; x++) px(x, 0, 1, 2 + Math.round(Math.sin(x / 7 + 1) + 1), C.river); // the Po
+  const jit = (c) => c.line === 1 ? Math.round(Math.sin((t + c.x * 3) / 3)) * 0.5 : 0;
+  for (const c of cohorts) {
+    const y = c.y + (c.line === 1 ? -c.side * (Math.min(t, 40) / 40) * 1.5 : 0) + jit(c);
+    const w = c.men > 400 ? 5 : 4;
+    px(c.x, y, w, 3, c.side > 0 ? C.you : C.foe);
+    px(c.x, y, w, 1, c.side > 0 ? C.youRim : C.foeRim);
+    if (sel === c) { g.strokeStyle = C.gold; g.lineWidth = 2; g.strokeRect(c.x * S - 2, y * S - 2, w * S + 4, 3 * S + 4); }
+    c.dy = y;
+  }
+  for (const k of cav) { px(k.x, k.y, 4, 2, k.side > 0 ? C.you : C.foe); px(k.x + 1, k.y - 1, 1, 1, '#2B2826'); }
+  // eagles
+  for (const [x, y] of [[20, 45], [58, 45]]) { px(x, y, 1, 3, C.gold); px(x - 1, y, 3, 1, C.gold); }
+  // pila volley every few seconds
+  const ph = t % 90;
+  if (ph < 18) for (let i = 0; i < 26; i++) {
+    const sx = 16 + (i * 3.1) % 70, sy = 31 - ph * 0.45 - (i % 3), arc = Math.sin(ph / 18 * Math.PI) * 2;
+    px(sx, sy - arc, 1, 1, '#2B2826');
+  }
+  requestAnimationFrame(() => setTimeout(draw, 80));
+}
+draw();
+cv.addEventListener('click', (e) => {
+  const r = cv.getBoundingClientRect(), x = (e.clientX - r.left) / r.width * W, y = (e.clientY - r.top) / r.height * H;
+  let best = null, bd = 9;
+  for (const c of cohorts) { const d = Math.hypot(c.x + 2 - x, c.dy + 1.5 - y); if (d < bd) { bd = d; best = c; } }
+  sel = best;
+  const el = document.getElementById('card');
+  if (!best) return;
+  const you = best.side > 0;
+  const bar = (v, col) => `<div class="meter"><i style="width:${v}%;background:${col}"></i></div>`;
+  el.innerHTML = you
+    ? `<h4>Legio ${best.name} · cohort ${['I','II','III','IV','V','VI','VII','VIII','IX','X'][best.n - 1]} · line ${best.line}</h4>
+       <div class="mrow">Men${bar(best.men / 4.8, 'var(--scarlet)')}<b>${best.men}/480</b></div>
+       <div class="mrow">Morale${bar(best.morale, 'var(--gold)')}<b>${best.morale}</b></div>
+       <div class="mrow">Endurance${bar(best.end, 'var(--purple-2)')}<b>${best.end}</b></div>
+       <div class="mrow">Pila<span></span><b>${best.pila} of 2</b></div>`
+    : `<h4>Legio ${best.name} · cohort ${best.n} (enemy)</h4>
+       <div class="mrow">Men<span>about ${Math.round(best.men / 50) * 50}</span><b></b></div>
+       <div class="mrow">State<span>${best.end < 60 ? 'tiring' : 'fresh'}</span><b></b></div>
+       <div class="mrow">Morale<span>${best.line === 1 ? 'shaken' : 'unknown: scouts cannot see the rear lines'}</span><b></b></div>
+       <div class="mrow">Loyalty<span>${best.short === 'XXI' ? 'served on the Rhine with your tribunate' : '—'}</span><b></b></div>`;
+});
+// chips and orders (show only)
+const chips = [['Left', 'Hold'], ['Centre', 'Charge'], ['Right', 'Relieve'], ['Reserve', 'Held'], ['Cavalry', 'Screen'], ['Legate', 'Centre']];
+const ORD = [['Hold', 'brace'], ['Advance', 'endurance'], ['Pila', '1 left'], ['Charge', 'heavy endurance'], ['Relieve', '1 of 2 left'], ['Fall back', 'ground, morale']];
+let chip = 1;
+function renderChips() {
+  document.getElementById('chips').innerHTML = chips.map(([n, o], i) => `<span class="chip ${i === chip ? 'on' : ''}" data-i="${i}">${n} <em>${o}</em></span>`).join('');
+  document.getElementById('orders').innerHTML = ORD.map(([n, s]) => `<button class="${n === chips[chip][1] ? 'on' : ''} ${n === 'Pila' && chip === 1 ? 'dis' : ''}" data-o="${n}">${n}<small>${n === 'Pila' && chip === 1 ? 'lines locked' : s}</small></button>`).join('');
+}
+renderChips();
+document.getElementById('chips').addEventListener('click', (e) => { const i = e.target.closest('.chip')?.dataset.i; if (i !== undefined) { chip = +i; renderChips(); } });
+document.getElementById('orders').addEventListener('click', (e) => { const o = e.target.closest('button')?.dataset.o; if (o && chip < 3) { chips[chip][1] = o; renderChips(); } });
+</script>
+</body>
+</html>

@@ -1,0 +1,322 @@
+# Imperator — design spec
+
+Rome, AD 68–71. You are a legionary legate nobody in history remembers. Nero is
+failing, the frontier armies are restless, and four men will try to take the
+throne. You intend to be the fifth, and the last.
+
+Status: **Stage 1 spec, approved in outline by the author 2026-10-24.**
+Next gate: Stage 2 kill-gate sim (numbers only, no UI). See §14.
+
+---
+
+## 1. Setting
+
+The civil wars of AD 68–69 and their aftermath. Nero's regime collapses in the
+spring of 68 (Vindex's revolt in Gaul, Galba's proclamation in Spain, Nero's
+suicide in June). Through 69, four men are proclaimed by their armies: Galba,
+Otho, Vitellius, Vespasian. Three of them are dead within the year.
+
+Why it is a game: the decisive resources were not battles. They were the
+loyalty of individual legions (bought with donatives and lost by refusing to
+pay them), money, the grain supply to Rome, recognition by the Senate and the
+Praetorians, and the security of the frontiers each army abandoned to march.
+Those are tradeable, scarce and in tension. That is a strategy game.
+
+**The divergence.** You exist, so history bends. The four historical claimants
+still rise on roughly their historical schedule, but events that killed them
+early (Galba's murder in January 69, Otho's suicide after First Bedriacum)
+become contests instead of certainties. All four reach the final act. You are
+the unhistorical fifth.
+
+## 2. Pillars
+
+1. **Every armed body in your path is a decision.** Buy it, talk it over, fight
+   it, or go around it. Each costs something different.
+2. **Loyalty is bought, not owned.** Every legion has its own loyalty, history
+   and grievances. Promises are debts and they come due.
+3. **The empire is the map.** The full map at its historical province count,
+   with real legion stations, real frontiers and real sailing seasons.
+4. **History moves without you.** Rivals act on the same rules as the player.
+   Frontiers flare when stripped. News arrives late.
+5. **Taking Rome is half the job.** The win is holding it.
+
+## 3. Core loop (one turn = one month)
+
+1. **Dispatches.** Reports arrive. Information about distant provinces is
+   weeks old (news lag by distance; see §9).
+2. **Provinces.** One or two decisions per province you hold (tax level, levy,
+   grain, appointee). Defaults carry forward, so quiet provinces take no clicks.
+3. **Armies.** Move, encamp, besiege, send envoys. Mark a route; the army
+   follows it.
+4. **Politics.** Letters, promises, appointments, bribes, accusations. Senate,
+   Praetorians, rival governors, client kings.
+5. **Resolution.** Movement, then encounters (§6), pay and donatives due,
+   loyalty changes, frontier pressure, events.
+6. **Check** the ways to lose (§11) and the win (§12).
+
+Campaign length: start March 68; the final act opens no earlier than July 69;
+a full campaign to a win runs about 40 monthly turns.
+
+## 4. The four acts
+
+| Act | Name | Starts | Your goal | Rivals active |
+|---|---|---|---|---|
+| I | Legatus | March 68 | Control your province: win the other legions, remove or turn the governor | Fellow legates, the governor, procurators, procedural rivals |
+| II | Acclamation | You control your province | Build strength, take neighbours, pick the moment to be proclaimed | Historical minor claimants (§8), procedural claimants; Galba proclaimed (April 68) |
+| III | The March | You are proclaimed, or January 69 | Take provinces, secure grain and money, close on Italy | Galba, Otho, Vitellius active and anchored; Vespasian joins July 69; minor claimants still appear |
+| IV | Year of Five Emperors | The later of July 69 or your acclamation | Take Rome, be recognised by the Senate, hold it for 18 months | The four historical claimants, anchoring off |
+
+**Acts I–III play differently.**
+- **Act I** is close-in politics and small fights inside one province: three or
+  four legions, their legates, auxiliary units, a governor with his own plans.
+  Ways in: bribery, letters to Rome accusing the governor, waiting for him to
+  overreach, a mutiny you start or stop, appointment by a new emperor who needs
+  you.
+- **Act II** is timing. Being proclaimed too early makes you everyone's target;
+  too late and someone else takes your neighbours' legions first.
+- **Act III** is the campaign: long marches, many small fights, few large ones.
+
+## 5. Legions, loyalty and money
+
+### Legions
+Each legion is an individual with:
+- **Strength** (men; nominal about 5,000, often less), **experience**, **station**
+  (home province).
+- **Loyalty** to you, 0–100.
+- **History tags**, such as service with other legions, past mutinies, famous
+  victories (XIV Gemina and Boudicca), pride in a former commander.
+- **Grievances**, such as unpaid promises, being moved from their station,
+  favouritism shown to another legion, being made to fight old comrades.
+- **Legate**, a person with his own character and ambition. Legates can become
+  rivals.
+
+Auxiliary cohorts and cavalry units (alae), the Praetorian Guard, urban cohorts
+and the fleets at Misenum and Ravenna are separate bodies on the same model.
+
+### Loyalty moves on
+- **Up:** pay on time, donatives, victories, a commander they respect, plunder,
+  being allowed to return to station.
+- **Down:** distance from station, unpaid promises, defeats, rival bribes,
+  fighting legions they served with, being made to garrison while others
+  plunder.
+- **At zero** a legion hails someone else: its legate, a rival, or the next
+  ambitious officer. It does not simply leave.
+
+### Money
+- Unit: **denarii.** Legionary pay is 225 denarii a year (Augustus to Domitian),
+  so a full-strength legion costs about 94,000 a month before auxiliaries and
+  officers.
+- **Donatives** are the lever and the trap. The Praetorians were promised 7,500
+  denarii a man in Galba's name (Plutarch, *Galba* 2); Galba refused to pay and
+  died.
+- **Promises outstanding** are tracked as debt. Every garrison you buy with a
+  promise adds to it. Victory makes it come due.
+- One economy reference (`docs/ECONOMY.md`, Stage 3) sets incomes, pay and
+  prices for the engine and the prose together.
+
+## 6. Encounters: small fights and the four options
+
+Any garrison, legion, auxiliary unit or fortified town your army meets is an
+encounter. Target: **30–50 small fights and 3–5 large battles per campaign.**
+
+| Option | Spends | Risk |
+|---|---|---|
+| **Buy** | Denarii now, or a promise | Debt; they can be bought again by a rival |
+| **Negotiate** | Legitimacy, oaths, hostages, shared history | Fails at low legitimacy or bad reputation; can end in a stand-aside rather than a defection |
+| **Fight** | Men, time, loyalty if they are old comrades | Casualties take months to replace |
+| **Bypass** | Time | An enemy behind you: cut supply, raided rear, a rival's new recruit |
+
+**Negotiate options** (each shown with what it spends, not what it will do):
+oath to the Senate and People, appeal to comrades (needs a shared history tag),
+deferred promise (adds debt), show of strength (needs a clear numbers edge),
+families and hostages.
+
+**Small fights** resolve in under a minute: 2–3 choices (approach, how much to
+commit, whether to pursue). Each choice beats one and loses to one. Chance
+moves numbers (about ±15%); it never decides what beats what. Fight types for
+variety: river crossing, walled town, ambush in a pass, night assault, a unit
+breaking or changing sides mid-fight. Terrain and season modify each.
+
+**Large battles** (Bedriacum-scale) open a short tactical layer of 3–5 rounds.
+State carries between rounds (reserves, fatigue, ground). The enemy adapts to
+repetition.
+
+**Auto-resolve** uses the same resolver under a policy. No second code path.
+
+## 7. Provinces
+
+The full empire at its historical province count for 68–69 (about 37; see
+`docs/PROVINCES.md`). Italy is not a province; it is split into four game
+regions (the north including Cremona and Bedriacum, Etruria and Umbria, Rome
+and Latium, Campania and the south including Misenum).
+
+**Depth by tier**, so the management layer stays live without becoming a chore:
+
+| Tier | Count (approx.) | Decisions |
+|---|---|---|
+| Legion provinces | 11 | Full: legions, levy, frontier, governor |
+| Grain and wealth | 6 | Tax level, grain diversion, appointee |
+| Interior | ~16 | Tax level, garrison; usually one click or none |
+| Procurator districts | ~6 | Routes and passes; appointee |
+| Italy regions | 4 | Senate, Praetorians, the crowd, grain distribution |
+
+Each province has: revenue, grain, unrest, a garrison, a governor or procurator
+(a person with loyalty), and frontier threat if it borders one.
+
+**Province decisions** (at most two per turn per province):
+- **Tax level:** normal, heavy, extortion. Heavier taxes bring money now and
+  unrest later.
+- **Levy:** auxiliaries (fast), or a new legion (slow: months; Galba raised
+  VII Galbiana in Spain, Clodius Macer raised I Macriana in Africa).
+- **Grain:** ship to Rome, hold, or embargo. Africa and Egypt are the weapon.
+- **Appointee:** a client who is loyal, or a capable man who might not be.
+
+## 8. Rivals
+
+Rivals play by the player's rules: same pay, same loyalty model, same
+encounters, same news lag.
+
+### The four historical claimants (anchored until Act IV)
+
+| Claimant | Base | Character |
+|---|---|---|
+| Galba | Hispania Tarraconensis | Old nobility, high legitimacy, stingy: will not pay donatives |
+| Otho | Lusitania, then Rome | Courts the Praetorians; charming, quick, short of legions |
+| Vitellius | Germania Inferior | The Rhine legions behind him; slow, indulgent, generous |
+| Vespasian | Judaea and the East | Patient; controls Egypt and the grain; lets others fight |
+
+**Anchoring rule (Acts I–III):** a historical claimant can be weakened (lose
+provinces, legions, allies, money) but not killed. Defeated, he retreats to his
+base and rebuilds. Their proclamations are tied to historical triggers, not
+fixed dates, so a strong player can make them earlier or later. The rule holds
+mostly through geography and timing: the four are out of reach for most of
+Acts I–II anyway. From Act IV, all four are mortal.
+
+### Historical minor claimants and kingmakers (Acts I–III)
+
+| Figure | Where | Historical role | Game role |
+|---|---|---|---|
+| C. Julius Vindex | Gallia Lugdunensis | Revolts March 68; crushed at Vesontio | Early rival or ally; his Gauls are cheap and brittle |
+| L. Verginius Rufus | Germania Superior | Beat Vindex; refused the throne twice | Kingmaker; his legions will offer the purple to someone |
+| L. Clodius Macer | Africa (legate, III Augusta) | Cut Rome's grain; raised a legion; killed late 68 | A legion legate who did what you are doing; grain rival |
+| Nymphidius Sabinus | Rome (Praetorian prefect) | Tried to seize power, killed 68 | Rome-based rival; the Praetorians' price |
+| Fonteius Capito | Germania Inferior | Governor, killed late 68 | Rhine rival before Vitellius arrives |
+| C. Licinius Mucianus | Syria | Backed Vespasian, ran his war | Ally, rival or kingmaker in the East |
+| Lucceius Albinus | The Mauretanias | Accused of royal ambitions 69 | Western rival; threatens Spain and Africa |
+| M. Antonius Primus | Pannonia | Led the Danube legions into Italy | Free-agent general; can join anyone |
+| Julius Civilis | Batavian lands, Rhine | Revolt 69–70 | Not a claimant; a frontier disaster for whoever strips the Rhine |
+
+Mark uncertain details as "traditional" in game text. Sources in
+`docs/PROVINCES.md`.
+
+### Procedural rivals
+Generated legates, governors and prefects with an ambition trait. They appear
+when conditions favour them: an emperor far away, unpaid legions, a frontier
+victory, a dead governor. Every run has a different cast. Target: two or three
+active procedural rivals per act.
+
+## 9. Time, distance and news
+
+- **Monthly turns.** Movement is in route segments with monthly travel times.
+- **Sailing season.** Seas are effectively closed November to March (*mare
+  clausum*). Winter crossings are possible, slow and dangerous.
+- **Alpine passes** are hard or closed in winter (Caecina crossed the Great
+  St Bernard in snow in early 69; Tacitus, *Histories* 1.70). Crossing costs
+  men and time.
+- **News lag.** What you see of a distant province or rival is as of when the
+  news left. Rome to Syria is weeks old; Britain in winter, older. Rumour is
+  marked as rumour.
+
+## 10. Frontiers
+
+Every legion pulled from a frontier raises that frontier's threat. Each has a
+historical flashpoint:
+
+| Frontier | Threat in 68–70 |
+|---|---|
+| Rhine | Batavian revolt under Civilis; German tribes |
+| Danube | Roxolani raid Moesia (winter 68–69); Dacians (69) |
+| Britain | Brigantes under Venutius (69) |
+| East | Parthia; the Jewish War, still running |
+| Africa | Garamantes raid (69–70) |
+
+A frontier that breaks costs provinces, revenue and legitimacy, and pulls
+legions back whether you like it or not.
+
+## 11. Ways to lose
+
+1. **Death.** Assassinated, executed or killed with your army. A decisive
+   defeat with no line of retreat ends the run (Otho's choice).
+2. **Mutiny.** Your legions hail someone else. Loyalty collapse across your
+   army, not a single legion.
+3. **History passes you by.** Act IV opens and you have not been proclaimed or
+   hold too few legions. The new emperor recalls you, and recall means death
+   (Capito, Macer).
+4. **Losing the throne.** You lose Rome during the hold and cannot retake it
+   within three months.
+
+## 12. The one way to win
+
+Take Rome, be recognised by the Senate (a law conferring the imperial powers,
+like the surviving *lex de imperio Vespasiani*), and **hold it for 18 months**.
+Difficulty settings change the hold to 12 or 24 months. The other claimants
+do not need to be dead, but while they live they will come for you.
+
+Holding is its own game: pay the debts your promises ran up, keep the grain
+coming, keep the Praetorians bought, keep the Senate frightened or flattered,
+and stop your generals becoming the next you.
+
+## 13. Starting provinces
+
+You pick a province none of the four historical claimants holds. The start sets
+difficulty and play style.
+
+| Start | Legions | Character |
+|---|---|---|
+| Britannia | 3 | Isolated and safe; the Channel blocks you both ways |
+| Germania Superior | 3 | Strong; next door to Vitellius and Verginius Rufus |
+| Pannonia | 1–2 | The centre; the Danube legions are the swing vote |
+| Moesia | 2–3 | Danube; Roxolani at your back |
+| Dalmatia | 1–2 | Closest to Italy; exposed |
+| Africa | 1 | Grain weapon; you are Clodius Macer's rival or his heir |
+| Syria | 3–4 | Rich; Vespasian and Mucianus next door |
+
+Legion counts shift during 68–69 as units move; see `docs/PROVINCES.md`.
+
+## 14. Next stage: the kill gate
+
+A numbers-only sim (no UI, no art): fixed policies × seeds × the full campaign.
+It must show:
+
+- **Buy, negotiate, fight and bypass are each best somewhere.** Buy-everything
+  goes bankrupt; fight-everything runs out of men; bypass-everything gets cut
+  off.
+- **Fight count lands in range:** 30–50 small fights, 3–5 large battles.
+- **Win reachable, not trivial.** Win-rate target to be set by the author.
+- **No dominant start.** Every start province wins sometimes.
+- **The anchor holds** without visible plot armour: count how often a
+  historical claimant reaches zero strength before Act IV.
+- **The hold matters:** some runs take Rome and still lose it.
+
+If the decisions aren't interesting as a table of numbers, no amount of UI
+fixes it.
+
+## 15. Assumptions and open questions
+
+| Item | Assumed | Needs the author |
+|---|---|---|
+| Turn length | One month | — |
+| Start date | March 68 (Vindex's revolt) | — |
+| Player | A fictional legionary legate, background chosen at the start (old family, new man) | Background options |
+| Win rate target | Not set | Yes |
+| Stack | Vanilla ES modules, no build step, phone-first PWA (the simulation-game shape used in Civ-City, The Lists, Football) | Confirm at Stage 3 |
+| Art | Not decided | Visual identity at Stage 5 |
+
+## Decisions log
+
+| Date | Decision |
+|---|---|
+| 2026-10-24 | **Small fights.** The author: "Huge battles may be rare, but I want to see lots of smaller fights. If you can't buy out a garrison or legion, they'll need to be negotiated with or fought." Encounter model with buy / negotiate / fight / bypass; target 30–50 small fights and 3–5 large battles per campaign. |
+| 2026-10-24 | **Rivals.** The author: "There should be plenty of other rivals coming up in every act, but only the 4 historical ones make it to the last act, and you are the unhistorical 5th." Anchoring rule: historical claimants defeated, not killed, before Act IV. |
+| 2026-10-24 | **Map.** The author: "The map of Rome at the time should be the full map, with the historical number of provinces." About 37 provinces plus four Italy regions, with depth by tier. |
+| 2026-10-24 | **Win condition.** Take Rome, gain Senate recognition, hold for 18 months (12 or 24 by difficulty). Approved by the author. |

@@ -265,7 +265,7 @@ export function defeatArmy(s, D, F, A, large) {
   for (const id of [...D.legions]) {
     const l = s.legions[id];
     if (!l) continue;
-    if (r.chance((large ? 0.45 : 0.35) + (F.road === 'military' ? 0.2 : 0))) { takeLegion(s, l, F.id, 30); if (A) { l.army = A.id; l.loc = A.loc; A.legions.push(l.id); } }
+    if (r.chance((large ? 0.25 : 0.2) + (F.road === 'military' ? 0.15 : 0))) { takeLegion(s, l, F.id, 30); if (A) { l.army = A.id; l.loc = A.loc; A.legions.push(l.id); } }
   }
   if (D.id === owner.leaderArmy) leaderDefeated(s, owner, D, large);
   if (s.armies[D.id]) {
@@ -278,7 +278,7 @@ export function defeatArmy(s, D, F, A, large) {
 export function leaderDefeated(s, F, A, large) {
   const r = s.R.combat;
   const canRetreat = ADJ[A.loc].some((e) => s.prov[e.to].owner === F.id) || s.prov[A.loc].owner === F.id;
-  const pDeath = (large ? 0.3 : 0.05) + (canRetreat ? 0 : 0.5);
+  const pDeath = (large ? 0.18 : 0.04) + (canRetreat ? 0 : 0.45);
   if (r.chance(pDeath)) {
     if (F.anchored && !s.actIVOpen) { s.stats.anchorSaves++; return; }
     killFaction(s, F, 'death');

@@ -291,3 +291,81 @@ Where this section and the plan above differ, this section wins.
 - The whispers meter is shown but plots give no month's warning yet.
 - Map borders need two hand corrections.
 - Fonts load from Google, so the first offline load uses fallback faces.
+
+---
+
+## 14. Phase 2 (calibration), as built (2026-10-24)
+
+Three pieces at full polish for the author's verdict, plus the fixes promised
+in §7.
+
+**1. The field** (`src/engine/battle.js`, `src/ui/field.js`, `docs/FRAME-BATTLE.md`)
+- **One resolver** for every large battle: hand play, "leave it to the
+  legates", AI against AI, and measurement.
+- **Orders:** three sectors with six orders each, plus the reserve, cavalry on
+  both wings, and the legate (ride, rally, appeal across the lines, ruse).
+- **Line relief rotates lines.** The tired line passes back through the gaps
+  and rests.
+- **A spent line cannot brace**, and a broken front passes its panic to the
+  line behind.
+- **Four enemy generals**, who answer repetition. Their intent is never shown.
+- **The screen is pixel art:** cohorts as blocks of soldier dots that thin as
+  men fall, volleys, dust, relief and rout animated, night falling.
+- **A calibration jump** on the title screen opens straight into Second
+  Bedriacum.
+
+Measured (`tools/measure-battle.js`, 300 battles a cell):
+
+| Policy | Even 4 v 4 | Outnumbered 4 v 6 | Outnumbering 6 v 4 |
+|---|---|---|---|
+| Careful hand play | 58% | 26% | 74% |
+| Leave it to the legates | 45% | 31% | 73% |
+| Never relieve | 37% | 30% | 71% |
+| Always hold | 19% | 13% | 74% |
+| Always charge | 10% | 7% | 66% |
+| Random | 5% | 3% | 94% |
+
+**Open:**
+- About a third of even battles end in a draw at night.
+- Random orders do oddly well with superior numbers.
+
+**2. Provinces** (`src/data/buildings.js`, `src/engine/buildings.js`)
+- **Eight works**, each with a cost, months and upkeep.
+- **Governors:** three named candidates per province with a trait; sometimes a
+  friend from your past.
+- **The sheet has four tabs:** overview (taxes, grain, games), buildings,
+  forces and governor.
+- **Every work matters somewhere.** `tools/measure-buildings.js` forbids each
+  in turn: every one is built, and each changes 3–22 of 24 campaigns. The arms
+  workshop was decoration and was folded into the levy office and the stone
+  camp.
+
+**3. The encounter card:** an emblem, the facts, and a line on what each
+option risks.
+
+**Fixes from §7 and from playing it**
+- **Plot warnings.** Plots form a month before they strike. You may be warned;
+  informers paid in time may uncover them. Conspiracy fell from 20–25% of
+  endings to 3–4%.
+- **Act I dead end.** A usurper could take your province while you plotted,
+  leaving nothing to approach. Fixed, and the interface bot now fails if Act I
+  ever has no way forward.
+- **Map:** south-east Spain, La Mancha and the Balearics belong to
+  Tarraconensis; the strip east of the Rhine mouth is outside the empire.
+- **Snowball.** The player held 18 legions when Act IV opened. Now an army of
+  more than eight legions in one place loses men each month (supply), and fewer
+  beaten legions change sides.
+
+**Balance** (`tools/measure-campaign.js`, 140 runs per road per level)
+
+| | Wealth | Military | Politics | Charisma | All | Target |
+|---|---|---|---|---|---|---|
+| Legionary | 41% | 20% | 51% | 36% | 37% | 35% |
+| Centurion | 19% | 6% | 21% | 13% | 15% | 15% |
+| Legate | 4.3% | 3.6% | 2.1% | 8.6% | 4.6% | 5% |
+
+- Every start on Legate wins 1.3–7.5%.
+- **Open:**
+  - Military still trails on the easier levels.
+  - Politics is below and charisma above the 3–8% band on Legate.
+  - Dying with your army is the top cause of loss (27–30%).

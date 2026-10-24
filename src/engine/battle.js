@@ -224,7 +224,7 @@ export function resolveRound(b) {
     const L = me.legate;
     if (L.action === 'ride' && !me.sectors[L.target].routed) {
       for (const c of frontOf(me, L.target)) c.morale = clamp(c.morale + 12, 0, 100);
-      const danger = 0.02 + (me.sectors[L.target].dist === 0 && them.sectors[L.target].order === 'charge' ? 0.03 : 0);
+      const danger = 0.01 + (me.sectors[L.target].dist === 0 && them.sectors[L.target].order === 'charge' ? 0.02 : 0);
       if (r.chance(danger)) { me.dead = true; for (const c of Object.values(me.cohorts)) c.morale = clamp(c.morale - 25, 0, 100); say(b, b.player === key ? 'You are struck down at the head of your men.' : 'Their general falls. A groan runs down their line.'); }
       else if (b.player === key) say(b, `You ride to ${sectorName(b, key, L.target)}; the men cheer.`);
     } else if (L.action === 'rally' && !me.rallyUsed && me.sectors[L.target].routed) {

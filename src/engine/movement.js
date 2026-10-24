@@ -1,3 +1,4 @@
+import { CONFIG } from './config.js';
 import { harbourAt } from './buildings.js';
 import { ADJ, edgeCost, isWinter, route } from './graph.js';
 import { bodiesAt, cull, flipProvince, hostile } from './core.js';
@@ -14,6 +15,9 @@ export function movement(s) {
       for (const id of A.legions) { const l = s.legions[id]; l.men = Math.round(l.men * (1 - Math.min(0.04, 0.01 * A.bypassed))); l.loyalty -= 1; }
       A.bypassed = Math.max(0, A.bypassed - 1);
     }
+    // supply: no province can feed more than eight legions in one place
+    const over = A.legions.length - CONFIG.supplyLimit;
+    if (over > 0) for (const id of A.legions) { const l = s.legions[id]; l.men = Math.round(l.men * (1 - Math.min(0.06, 0.01 * over))); }
     if (A.wait > 0) { A.wait--; continue; }
     if (s.pending && s.pending.some((p) => p.army === A.id)) continue;
     if (!A.path.length) { engage(s, A, A.loc, true); continue; }

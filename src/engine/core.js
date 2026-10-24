@@ -1,0 +1,265 @@
+import { GROUP_OF_PROVINCE, BACKGROUND } from '../data/world.js';
+import { streamFor } from './rng.js';
+import { CONFIG, ROAD_STAT, TOWN_MEN } from './config.js';
+import { ADJ, PROV, isWinter, route } from './graph.js';
+import { loyalty } from './world.js';
+
+export function newFaction(s, f) {
+  const id = f.id || `F${s.nextId++}`;
+  const F = {
+    id, name: f.name || id, kind: f.kind, road: f.road || 'military',
+    stats: { opes: 2, virtus: 2, auct: 2, gratia: 2, ...(f.stats || {}) },
+    legit: f.legit ?? 20, treasury: f.treasury ?? 200, borrowed: 0,
+    acclaimed: !!f.acclaimed, alive: true, anchored: !!f.anchored, base: f.base,
+    target: f.target || 'local', stingy: !!f.stingy, patience: f.patience || 0,
+    comrades: f.comrades || null, allies: new Set(f.allies || []),
+    leaderArmy: null, levy: null, rebel: !!f.rebel, bornTurn: s.turn, zeroSince: -1,
+    allowed: f.allowed || null, declareAt: f.declareAt ?? 4,
+  };
+  s.factions[F.id] = F;
+  return F;
+}
+
+export function newLegion(s, l) {
+  const L = {
+    id: l.id || `L${s.nextId++}`, station: l.station, group: l.group, men: l.men ?? CONFIG.legionMen,
+    exp: l.exp ?? 1.0, owner: l.owner, loyalty: l.loyalty ?? 60, loc: l.loc ?? l.station, army: null,
+    debt: 0, debtDue: -1, payMult: l.payMult ?? 1, standAside: {}, levy: !!l.levy,
+  };
+  s.legions[L.id] = L;
+  return L;
+}
+
+export function buildBackground(road, pickOverride) {
+  const stats = { opes: 1, virtus: 1, auct: 1, gratia: 1 };
+  let legit = 15, comrades = null, enemies = 0;
+  const friends = [];
+  const key = ROAD_STAT[road];
+  const chosen = [];
+  for (const stage of BACKGROUND) {
+    let opt;
+    if (pickOverride && pickOverride[stage.stage]) opt = stage.options.find((o) => o.id === pickOverride[stage.stage]);
+    if (!opt) {
+      // pick the option that most raises the road's stat, tie-break on total
+      opt = stage.options.slice().sort((a, b) =>
+        ((b.d[key] || 0) - (a.d[key] || 0)) || (sum(b.d) - sum(a.d)))[0];
+    }
+    chosen.push(opt.id);
+    for (const [k, v] of Object.entries(opt.d)) stats[k] += v;
+    legit += opt.legit || 0;
+    enemies += opt.enemies || 0;
+    if (opt.comrades) comrades = opt.comrades;
+    if (opt.friend) friends.push(opt.friend);
+  }
+  for (const k in stats) stats[k] = Math.max(1, Math.min(6, stats[k]));
+  legit += stats.auct * 5;
+  return { stats, legit, comrades, enemies, friends, chosen };
+}
+
+export const sum = (o) => Object.values(o).reduce((a, b) => a + b, 0);
+
+export function townsFor(p) {
+  const men = TOWN_MEN[p.tier] || 0;
+  if (!men || p.id === 'ROM') return [];
+  const n = p.tier === 'grain' || p.tier === 'italy' || p.rev >= 140 ? 2 : 1;
+  return Array.from({ length: n }, (_, i) => ({ men: men - i * 300, base: men - i * 300, standAside: {} }));
+}
+
+export function rngs(s) {
+  return {
+    combat: streamFor(s.seed, s.turn, 'combat'), ai: streamFor(s.seed, s.turn, 'ai'),
+    events: streamFor(s.seed, s.turn, 'events'), spawn: streamFor(s.seed, s.turn, 'spawn'),
+  };
+}
+
+export function log(s, msg) { if (s.opts.trace) s.events.push(`t${s.turn} ${msg}`); }
+
+export const ownedLegions = (s, fid) => Object.values(s.legions).filter((l) => l.owner === fid);
+
+export const ownedProvinces = (s, fid) => Object.values(s.prov).filter((p) => p.owner === fid);
+
+export function legionPower(s, l) { return l.men * l.exp * (0.6 + 0.4 * l.loyalty / 100); }
+
+export function hostile(s, a, b) {
+  if (a === b) return false;
+  const A = s.factions[a], B = s.factions[b];
+  if (!A || !B) return false;
+  if (A.allies.has(b) || B.allies.has(a)) return false;
+  if (a === 'state') return s.emperor !== b && (B.rebel || B.acclaimed);
+  if (b === 'state') return s.emperor !== a && (A.rebel || A.acclaimed);
+  return true;
+}
+
+export function armyPower(s, A) {
+  const F = s.factions[A.owner];
+  let p = 0;
+  for (const id of A.legions) p += legionPower(s, s.legions[id]);
+  const lead = A.id === F.leaderArmy ? 1 + 0.06 * F.stats.virtus : 1 + 0.02 * F.stats.virtus;
+  return p * lead * (F.kind === 'player' ? s.diff.playerEdge : 1);
+}
+
+export function bodiesAt(s, fid, pid) {
+  const out = [];
+  for (const A of Object.values(s.armies)) if (A.loc === pid && hostile(s, fid, A.owner) && A.legions.length) out.push({ kind: 'army', army: A });
+  for (const l of Object.values(s.legions)) {
+    if (l.loc === pid && !l.army && hostile(s, fid, l.owner) && !(l.standAside[fid] > s.turn)) out.push({ kind: 'legion', legion: l });
+  }
+  const P = s.prov[pid];
+  if (P.aux > 0 && hostile(s, fid, P.owner) && !(P.standAside[fid] > s.turn)) out.push({ kind: 'aux', prov: P });
+  if (hostile(s, fid, P.owner)) for (const t of P.towns) if (t.men > 0 && !(t.standAside[fid] > s.turn)) out.push({ kind: 'town', town: t, prov: P });
+  return out;
+}
+
+export function bodyMen(s, b) {
+  if (b.kind === 'town' || b.kind === 'raid') return (b.town || b.raid).men;
+  if (b.kind === 'army') return b.army.legions.reduce((a, id) => a + s.legions[id].men, 0);
+  if (b.kind === 'legion') return b.legion.men;
+  return b.prov.aux;
+}
+
+export function bodyPower(s, b) {
+  if (b.kind === 'town') return b.town.men * 0.45 * 1.7; // militia behind walls
+  if (b.kind === 'raid') return b.raid.men * 0.75;
+  if (b.kind === 'army') return armyPower(s, b.army);
+  if (b.kind === 'legion') return legionPower(s, b.legion) * 1.1;
+  return b.prov.aux * 0.7 * 1.2;
+}
+
+export function bodyLoyalty(s, b) {
+  const oath = s.turn < 3 && ((b.kind === 'legion' && b.legion.owner === 'state') || (b.kind === 'aux' && b.prov.owner === 'state')) ? 20 : 0;
+  return Math.min(100, rawLoyalty(s, b) + oath);
+}
+
+export function rawLoyalty(s, b) {
+  if (b.kind === 'town') return 50 + Math.min(20, s.factions[b.prov.owner].legit / 4);
+  if (b.kind === 'raid') return 100;
+  if (b.kind === 'army') return b.army.legions.reduce((a, id) => a + s.legions[id].loyalty, 0) / b.army.legions.length;
+  if (b.kind === 'legion') return b.legion.loyalty;
+  return 55;
+}
+
+export function bodyGroup(s, b) {
+  if (b.kind === 'town' || b.kind === 'raid') return null;
+  if (b.kind === 'legion') return b.legion.group;
+  if (b.kind === 'army') return s.legions[b.army.legions[0]].group;
+  return GROUP_OF_PROVINCE[b.prov.id] || null;
+}
+
+export function buyCost(s, F, b) {
+  return bodyMen(s, b) * CONFIG.buyPerMan * (0.5 + bodyLoyalty(s, b) / 100) / (1 + 0.08 * F.stats.opes);
+}
+
+export function negotiateChance(s, F, b, ratio) {
+  const kind = F.stats.gratia >= F.stats.auct ? 'appeal' : 'oath';
+  const stat = kind === 'appeal' ? F.stats.gratia : F.stats.auct;
+  let p = 0.08 + 0.065 * stat + (F.legit - 40) / 220 - (bodyLoyalty(s, b) - 50) / 140 - s.diff.negPenalty;
+  if (kind === 'appeal' && F.comrades && bodyGroup(s, b) === F.comrades) p += 0.25;
+  if (kind === 'oath' && s.emperor === F.id) p += 0.15;
+  if (ratio >= 2) p += 0.1;
+  if (b.kind === 'army') p -= 0.15;
+  return { p: Math.max(0.02, Math.min(0.9, p)), kind };
+}
+
+export function debtTotal(s, fid) { return ownedLegions(s, fid).reduce((a, l) => a + l.debt, 0); }
+
+export function addMoney(F, x) { F.treasury += x; }
+
+export function takeLegion(s, l, fid, loyalty) {
+  if (l.army) {
+    const A = s.armies[l.army];
+    A.legions = A.legions.filter((x) => x !== l.id);
+    l.army = null;
+  }
+  l.owner = fid; l.loyalty = loyalty; l.debt = 0; l.debtDue = -1; l.bought = false;
+}
+
+export function removeLegion(s, l) {
+  if (l.army) { const A = s.armies[l.army]; A.legions = A.legions.filter((x) => x !== l.id); }
+  delete s.legions[l.id];
+}
+
+export function setAside(s, F, b, months) {
+  if (b.kind === 'town') b.town.standAside[F.id] = s.turn + months;
+  if (b.kind === 'legion') b.legion.standAside[F.id] = s.turn + months;
+  if (b.kind === 'aux') b.prov.standAside[F.id] = s.turn + months;
+}
+
+export function gainBody(s, F, b, loyalty, debt, bought) {
+  if (b.kind === 'legion') {
+    takeLegion(s, b.legion, F.id, Math.min(90, loyalty));
+    b.legion.bought = !!bought;
+    if (debt) { b.legion.debt = debt; b.legion.debtDue = s.turn + CONFIG.promiseMonths; }
+  } else if (b.kind === 'aux') {
+    const P = b.prov;
+    if (P.owner !== F.id && !P.towns.some((t) => t.men > 0)) flipProvince(s, P, F.id, true);
+    else P.aux = 0;
+  } else if (b.kind === 'town') {
+    b.town.men = 0; // gates opened
+  }
+}
+
+export function flipProvince(s, P, fid, keepAux) {
+  const old = P.owner;
+  P.owner = fid;
+  P.unrest = Math.min(100, P.unrest + 10);
+  if (!keepAux) P.aux = Math.round(PROV[P.id].aux * 0.4);
+  P.standAside = {};
+  for (const t of P.towns) { t.men = Math.round(t.base * 0.7); t.standAside = {}; }
+  const F = s.factions[fid];
+  if (F.kind !== 'state') F.rebel = true;
+  if (F.kind === 'player') F.ownsProvince = true;
+  // Praetorians follow Rome only by encounter, never automatically
+  void old;
+}
+
+export function cull(s) {
+  for (const l of Object.values(s.legions)) if (l.men < 1000) removeLegion(s, l);
+}
+
+export function retreatLegion(s, l) {
+  const F = s.factions[l.owner];
+  const opts = ADJ[l.loc].map((e) => e.to).filter((p) => s.prov[p].owner === l.owner);
+  if (opts.length) { if (l.army) takeLegion(s, l, l.owner, l.loyalty); l.loc = opts[0]; return; }
+  if (F.anchored && F.base && !s.actIVOpen) { if (l.army) takeLegion(s, l, l.owner, l.loyalty); l.loc = F.base; return; }
+  removeLegion(s, l);
+}
+
+export function killFaction(s, F, cause) {
+  if (!F.alive) return;
+  log(s, `DEAD ${F.id}: ${cause}`);
+  F.alive = false;
+  if (s.emperor === F.id) s.emperor = null;
+  if (F.kind === 'player') { s.outcome = { win: false, cause, turn: s.turn }; return; }
+  // its legions and provinces go back to the state (the governors decide later)
+  for (const l of ownedLegions(s, F.id)) takeLegion(s, l, 'state', 40);
+  for (const p of ownedProvinces(s, F.id)) { p.owner = 'state'; }
+  for (const A of Object.values(s.armies)) if (A.owner === F.id) delete s.armies[A.id];
+  if (s.emperor === F.id) s.emperor = null;
+}
+
+export function levyLegion(s, F, pid, id) {
+  newLegion(s, { id, station: pid, group: GROUP_OF_PROVINCE[pid] || 'italy', exp: 0.6, owner: F.id, loyalty: 62, levy: true });
+}
+
+export function makeArmy(s, owner, loc, legionIds, dest) {
+  const A = { id: `A${s.nextId++}`, owner, loc, legions: [], path: [], edgeLeft: 0, dest: null, from: loc, bypassed: 0 };
+  for (const id of legionIds) { const l = s.legions[id]; if (l.army) takeLegion(s, l, l.owner, l.loyalty); l.army = A.id; l.loc = loc; A.legions.push(id); }
+  s.armies[A.id] = A;
+  if (dest) setDest(s, A, dest);
+  return A;
+}
+
+export function setDest(s, A, dest) {
+  if (A.dest === dest && A.path.length) return;
+  A.dest = dest;
+  A.path = dest === A.loc ? [] : route(A.loc, dest, isWinter(s.turn));
+  A.edgeLeft = 0;
+}
+
+export function strengthOf(s, fid) { return ownedLegions(s, fid).reduce((a, l) => a + legionPower(s, l), 0); }
+
+export function strongestFaction(s) {
+  let best = null, bs = -1;
+  for (const f of Object.values(s.factions)) if (f.alive && f.kind !== 'state') { const x = strengthOf(s, f.id); if (x > bs) { bs = x; best = f.id; } }
+  return best;
+}

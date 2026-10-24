@@ -4,8 +4,9 @@ Rome, AD 68–71. You are a legionary legate nobody in history remembers. Nero i
 failing, the frontier armies are restless, and four men will try to take the
 throne. You intend to be the fifth, and the last.
 
-Status: **Stage 1 spec, approved in outline by the author 2026-10-24.**
-Next gate: Stage 2 kill-gate sim (numbers only, no UI). See §16.
+Status: **Stage 2 kill gate run 2026-10-24** (`sim/`, results in
+`docs/KILLGATE.md`). Rules marked *(kill gate)* below were added or changed by
+what the sim found. Next gate: Stage 3 design proposal.
 
 ---
 
@@ -67,7 +68,7 @@ a full campaign to a win runs about 40 monthly turns.
 | I | Legatus | March 68 | Control your province: win the other legions, remove or turn the governor | Fellow legates, the governor, procurators, procedural rivals |
 | II | Acclamation | You control your province | Build strength, take neighbours, pick the moment to be proclaimed | Historical minor claimants (§8), procedural claimants; Galba proclaimed (April 68) |
 | III | The March | You are proclaimed, or January 69 | Take provinces, secure grain and money, close on Italy | Galba, Otho, Vitellius active and anchored; Vespasian joins July 69; minor claimants still appear |
-| IV | Year of Five Emperors | The later of July 69 or your acclamation | Take Rome, be recognised by the Senate, hold it (12 / 18 / 24 months by difficulty) | The four historical claimants, anchoring off |
+| IV | Year of Five Emperors | July 69, Vespasian's proclamation *(kill gate: fixed to the calendar)* | Take Rome, be recognised by the Senate, hold it (12 / 18 / 24 months by difficulty); the hold clock runs only in Act IV | The four historical claimants, anchoring off |
 
 **Acts I–III play differently.**
 - **Act I** is close-in politics and small fights inside one province: three or
@@ -146,6 +147,20 @@ repetition.
 
 **Auto-resolve** uses the same resolver under a policy. No second code path.
 
+**Bodies money cannot settle** *(kill gate)*. Without these, the wealth and
+politics roads bought and talked their way through whole campaigns with almost
+no fighting.
+
+| Body | Where | Options | Notes |
+|---|---|---|---|
+| Walled town | One or two per settled province | Negotiate (open the gates), fight (storm), bypass | Cannot be bought. Storming sacks the town: plunder and loyalty for the men, a little legitimacy lost, unrest, and the army loses its next month |
+| Raiders | Frontier provinces when threat is high | Fight only | Hit whoever holds the province; unopposed they cost unrest, revenue and more threat |
+| Brigands | Provinces with unrest over 50 | Fight only | The price of heavy taxes and sacked towns |
+
+**Bought men stay bought only while paid** *(kill gate)*. Bought legions lose
+loyalty faster than others, and any faction with money can outbid for a
+wavering enemy legion just before a battle. Same rule for everyone.
+
 ## 7. Provinces
 
 The full empire at its historical province count for 68–69 (about 37; see
@@ -218,6 +233,19 @@ when conditions favour them: an emperor far away, unpaid legions, a frontier
 victory, a dead governor. Every run has a different cast. Target: two or three
 active procedural rivals per act.
 
+### How only the four reach the last act *(kill gate)*
+- The four always rise. If a claimant's own province is taken, he rises in the
+  nearest neutral province instead (Otho rises in Campania with the fleet
+  legion, I Adiutrix, if Galba's army holds Rome).
+- When Act IV opens, every surviving minor or procedural rival folds into the
+  strongest claimant within three months' march, as Mucianus and the Danube
+  legions did for Vespasian. The player counts as a claimant and can receive
+  them.
+- In Act IV the surviving claimants keep drawing men: a new legion every few
+  months (by difficulty).
+- A general who deserts you in Act IV goes over to a living claimant; he does
+  not become a sixth.
+
 ## 9. Time, distance and news
 
 - **Monthly turns.** Movement is in route segments with monthly travel times.
@@ -252,9 +280,10 @@ legions back whether you like it or not.
    defeat with no line of retreat ends the run (Otho's choice).
 2. **Mutiny.** Your legions hail someone else. Loyalty collapse across your
    army, not a single legion.
-3. **History passes you by.** Act IV opens and you have not been proclaimed or
-   hold too few legions. The new emperor recalls you, and recall means death
-   (Capito, Macer).
+3. **History passes you by.** You have not been proclaimed within two months
+   of Act IV opening, or you hold no province. The new emperor recalls you, and
+   recall means death (Capito, Macer). *(kill gate: the spec had Act IV wait
+   for your proclamation, which made this loss impossible.)*
 4. **Losing the throne.** You lose Rome during the hold and cannot retake it
    within three months.
 
@@ -331,6 +360,33 @@ them cheaper.
 career of the period. Gaps are normal and some steps could be skipped; mark
 these as typical, not mandatory.
 
+## 13a. Holding Rome *(kill gate)*
+
+The first sim had no hold to speak of: 86% of Legate runs that took Rome went
+on to win. Three of the four historical emperors failed at exactly this stage,
+so it is now its own game.
+
+**Recognition.** The Senate recognises a proclaimed claimant who holds Rome
+with no hostile legions in Rome, Etruria or Campania, if his legitimacy is 25
+or more, **or** if he has five or more legions in Italy (terror: the Senate
+gives a smaller legitimacy gain).
+
+**Pressures every month in Act IV:**
+- **Donatives** fall due: the Praetorians' price and a smaller sum per legion.
+- **Grain:** shortfalls raise Rome's unrest, which costs legitimacy and the
+  Praetorians' loyalty.
+- **Conspiracy:** a monthly chance of a plot. It rises with low legitimacy and
+  Rome's unrest, falls with legions in Italy and with your road's own stat. If
+  a plot comes, your road's stat sets the odds it succeeds: the guard
+  (military), the Senate's warnings (politics), the crowd (charisma), paid
+  informers (wealth).
+- **Generals:** a disloyal legion away from you may go over to a living rival.
+
+**Spending, by road:** everyone can pay for the grain dole; wealth buys
+senators, politics hands out consulships, charisma pays for games and
+largesse. All three raise legitimacy and give money somewhere to go late in
+the game.
+
 ## 14. Difficulty
 
 Three levels, named for the ranks you would rather be in the war.
@@ -347,9 +403,14 @@ Three levels, named for the ranks you would rather be in the war.
 | News lag | Rivals shown as of now | Normal | Normal; more false rumour |
 | Starting funds | +50% | Normal | Normal |
 | Encounter odds | Wider margin to win a fight | Normal | Normal |
+| Historical claimants *(kill gate)* | +3 to stats, legions somewhat loyal, richer | +3, legions loyal, richer | +3, legions loyal, much richer |
+| Claimants' new legions in Act IV *(kill gate)* | Every 4 months | Every 3 months | Every 3 months |
+| Conspiracy and generals *(kill gate)* | Moderate | High | Highest |
+| Praetorians' donative *(kill gate)* | Lower | Normal | Higher, due at once |
 
-The Legate target is set; the easier two are proposals until the kill gate
-measures them. "Competent play" means the reference bot policies (§16); human
+Measured in the kill gate (350 runs per road per level): Legionary 33.7%,
+Centurion 13.7%, Legate 5.2%. See `docs/KILLGATE.md`. The exact knob values
+live in `sim/model.js` (`DIFFICULTY`). "Competent play" means the reference bot policies (§16); human
 win rates will differ and get calibrated at playtest.
 
 ## 15. Starting provinces
@@ -400,7 +461,7 @@ fixes it.
 | Turn length | One month | — |
 | Start date | March 68 (Vindex's revolt) | — |
 | Player | A fictional legionary legate built through seven background choices (§13) | — |
-| Win rate targets | Legate 5% (set); Centurion 15% and Legionary 35% (proposed) | Confirm the easier two |
+| Win rate targets | Legate 5%, Centurion 15%, Legionary 35%; measured 5.2%, 13.7%, 33.7% | — |
 | Difficulty name | "Legionary" rather than "Legionnaire" (the Roman term) | Confirm |
 | Stack | Vanilla ES modules, no build step, phone-first PWA (the simulation-game shape used in Civ-City, The Lists, Football) | Confirm at Stage 3 |
 | Art | Not decided | Visual identity at Stage 5 |
@@ -409,6 +470,7 @@ fixes it.
 
 | Date | Decision |
 |---|---|
+| 2026-10-24 | **Kill gate run** (`docs/KILLGATE.md`, 4,200 campaigns). The author: "Go ahead." Measured: Legionary 33.7%, Centurion 13.7%, Legate 5.2%, every road 4.3–6.3% on Legate, every start 3.0–8.5% on Legate. Design changes from the findings: walled towns, raiders and brigands (money settled everything: buy-only beat every road at 31–35%); fickle bought legions and pre-battle outbidding; the hold as its own game (86% of Legate runs that took Rome had won; now 27–56% of Rome-takers still lose); Act IV fixed to July 69 (the spec contradicted itself); recognition by terror; non-historical rivals fold into a claimant when Act IV opens. Six open issues carried to Stage 3. |
 | 2026-10-24 | **Four roads.** The author: "Players should be able to look at this game and complete it in multiple ways, like being rich, militarily powerful, politically powerful, and charismatic." One win condition, four roads (§12), each tied to a stat and an encounter option, each with its own way to hold Rome. Kill gate must show each road winning at Legate. |
 | 2026-10-24 | **Background.** The author: "Have the background of like early life and other positions help to help determine stats and friends. Through a few choices or such." Seven choices along the cursus honorum set stats, friends and enemies (§13). |
 | 2026-10-24 | **Difficulty.** The author: "Make 3 difficult levels with different amounts of rivals, along other affects. Legionnaire, Centurion, Legate. Legate should be at the 5% win rate, each other is easier." Three levels (§14); Legate at 5%; easier targets proposed at 15% and 35%. |

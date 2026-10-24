@@ -1,0 +1,9 @@
+{
+  "name": "imperator",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "sim": "node sim/run.js",
+    "check": "node sim/check.js"
+  }
+}

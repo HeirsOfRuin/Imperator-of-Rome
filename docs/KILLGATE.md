@@ -116,12 +116,27 @@ limiting negotiation to one try per body per month.
 Final build, Centurion, 805 runs per arm (change in win rate when the option is
 removed; ~ = within noise):
 
-*Pending: the 805-run ablation is still running; this table is filled in by the next commit.*
+| Road | Full bot | No buy | No negotiate | No fight | No bypass | Buy only | Negotiate only |
+|---|---|---|---|---|---|---|---|
+| Wealth | 18.4% | −2.9~ | **−5.1** | **−17.4** | +0.9~ | 15.2% | 19.4% |
+| Military | 10.1% | **−3.7** | −0.1~ | **−10.1** | +0.6~ | 8.3% | 8.4% |
+| Politics | 17.6% | +0.0~ | **−7.3** | **−16.3** | +1.5~ | 11.8% | 18.1% |
+| Charisma | 15.4% | −2.7~ | **−6.1** | **−14.5** | −0.4~ | 7.7% | 13.9% |
+
+(These base rates are higher than the main table's Centurion row because the
+ablation uses a different seed set; compare within a row only.)
+
+- Negotiation now matters on three roads, and buying matters on the military
+  road (its fallback when a fight is too risky). Fighting is essential on all
+  four. **Met.**
+- Buy-only no longer beats the full bot. **Met.** But negotiate-plus-fight
+  alone is about as good as the full playbook on the wealth and politics
+  roads: negotiation is the strongest single option. Watch it at playtest.
 
 - Fight-only and bypass-only are the worst policies on every road: men run out,
   or the army is cut off. **Met.**
 - Buy-only no longer beats the full bot. **Met.**
-- **Open issue 5:** at 210 runs per arm, removing bypass made no difference outside noise; the 805-run result will confirm or clear this.
+- **Open issue 5:** confirmed at 805 runs per arm: removing bypass changes no road's win rate (−0.4 to +1.5, all noise). It is used about four times a campaign but decides nothing yet.
 
 ### Background matters but does not decide (Centurion, 210 per cell)
 

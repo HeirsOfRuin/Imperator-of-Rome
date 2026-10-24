@@ -234,3 +234,60 @@ tools must show each one being worth building somewhere, or it is cut.
    choice? (`ECONOMY.md`)
 2. **Rival colours:** muted earth hues under the main palette (default), or
    only the six colours plus patterns?
+
+---
+
+## 13. Phase 1, as built (2026-10-24)
+
+Where this section and the plan above differ, this section wins.
+
+**What exists**
+- `src/engine/`: the kill-gate model split into 15 modules, plus diplomacy
+  (`FRAME-DIPLOMACY.md`), the player's actions, `view()`, versioned saves and a
+  money ledger.
+- `src/data/map.js`: a 204×165 tile map built from Natural Earth by
+  `tools/build-map.js`.
+- `src/ui/`: the phone shell. It has a map with pan and zoom, plus province,
+  provinces, army, diplomacy, Rome, news and legate screens. It also has
+  encounter and offer cards, new game (difficulty, start, quick start or seven
+  life choices, name), an end screen, and save codes (`IMPR1.`).
+- PWA manifest, service worker, generated icons.
+
+**Verified**
+- **The split is faithful.** With diplomacy off and the old settings, the
+  engine matches `sim/model.js` on 252 campaigns.
+- **`tools/check.js`** checks its rules every turn over 168 campaigns,
+  including purse = start + ledger.
+- **`tools/bot.js`** plays campaigns through `act()` and `view()` only, with no
+  stall or rejected action. A save reloaded at month 12 plays on identically.
+- **`tools/smoke.mjs`** at 390×844: every tab renders with no overflow, raw
+  tokens or console errors; 24 months played; end screen; save survives a
+  reload.
+
+**Found and fixed while building**
+- In Act I rivals treated you as an open enemy, and an idle player lost his
+  legion by month 10 in 84% of games. Now your legion counts as the Senate's
+  until you take a province or are proclaimed. Beaten in Act I, it falls back to
+  a neighbouring province instead of being destroyed.
+- Dispatches were trace lines ("F11 rises at NIT"). Now they are written news,
+  dated, and late from far provinces.
+
+**Measured with diplomacy** (`tools/measure-campaign.js`, 140 runs per road per level)
+
+| | Wealth | Military | Politics | Charisma | All | Target |
+|---|---|---|---|---|---|---|
+| Legionary | 44% | 29% | 54% | 45% | 43% | 35% |
+| Centurion | 24% | 11% | 33% | 22% | 22% | 15% |
+| Legate | 15% | 5% | 10% | 12% | 11% | 5% |
+
+- **Diplomacy makes the game easier.** Its biggest lever, submission, was
+  reined in (an office owed, trust first, one demand every three months).
+- **Win rates are about 1.5× target.** Retuning waits for Phase 2, because
+  buildings and the field will move these numbers again.
+- **Military is the weakest road**, as at the kill gate.
+
+**Known gaps carried to Phase 2**
+- Buildings, governors and the tactical field.
+- The whispers meter is shown but plots give no month's warning yet.
+- Map borders need two hand corrections.
+- Fonts load from Google, so the first offline load uses fallback faces.

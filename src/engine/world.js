@@ -1,7 +1,7 @@
 import { FRONTIERS } from '../data/world.js';
 import { CONFIG } from './config.js';
 import { PROV, distance, isWinter } from './graph.js';
-import { money, cull, debtTotal, hostile, killFaction, legionPower, newFaction, ownedLegions, ownedProvinces, takeLegion } from './core.js';
+import { log, money, cull, debtTotal, hostile, killFaction, legionPower, newFaction, ownedLegions, ownedProvinces, takeLegion } from './core.js';
 import { fight } from './combat.js';
 import { hold } from './rome.js';
 
@@ -140,7 +140,7 @@ export function frontiers(s) {
         P.unrest = Math.min(100, P.unrest + 30);
         const O = s.factions[P.owner];
         if (O.kind !== 'state') O.legit = Math.max(0, O.legit - 8);
-        if (O.kind === 'player') s.stats.breaches++;
+        if (O.kind === 'player') { s.stats.breaches++; log(s, `breach ${pid}`, pid, `The frontier breaks in ${PROV[pid].name}. Raiders burn the farms; no taxes will come from there for months.`); }
         for (const l of Object.values(s.legions)) if (l.loc === pid) l.men = Math.round(l.men * 0.85);
         if (!Object.values(s.legions).some((l) => l.loc === pid && l.owner === P.owner)) P.owner = 'state';
       }

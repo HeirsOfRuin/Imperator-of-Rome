@@ -1,6 +1,6 @@
 import { CONFIG } from './config.js';
 import { ADJ, ITALY, PROV, distance, isWinter, route } from './graph.js';
-import { money, armyPower, flipProvince, hostile, killFaction, legionPower, levyLegion, log, makeArmy, ownedLegions, ownedProvinces, setDest, strengthOf, strongestFaction } from './core.js';
+import { who, money, armyPower, flipProvince, hostile, killFaction, legionPower, levyLegion, log, makeArmy, ownedLegions, ownedProvinces, setDest, strengthOf, strongestFaction } from './core.js';
 import { resolveEncounter } from './combat.js';
 import { rome } from './rome.js';
 
@@ -195,7 +195,7 @@ export function playerStrategy(s, F) {
 // A human player's month: what happens on its own (levies finishing, suspicion
 // cooling, legions joining the army). Every decision comes from actions.js.
 export function humanUpkeep(s, F) {
-  if (F.levy && F.levy.done <= s.turn) { levyLegion(s, F, F.levy.at, undefined); log(s, `A new legion is raised in ${F.levy.at}`, F.levy.at); F.levy = null; }
+  if (F.levy && F.levy.done <= s.turn) { levyLegion(s, F, F.levy.at, undefined); log(s, `levy ${F.levy.at}`, F.levy.at, `A new legion is ready in ${PROV[F.levy.at].name}.`); F.levy = null; }
   if (!F.ownsProvince) {
     F.suspicion = Math.max(0, F.suspicion - 3);
     if (F.suspicion >= 100) {
@@ -234,5 +234,5 @@ export function acclaim(s, F) {
     l.debtDue = l.debtDue >= 0 ? Math.min(l.debtDue, s.turn + s.diff.dueOnVictory) : s.turn + s.diff.dueOnVictory + 2;
   }
   F.acclaimedTurn = s.turn;
-  log(s, `${F.id} acclaimed with ${ownedLegions(s, F.id).length} legions`);
+  log(s, `${F.id} acclaimed with ${ownedLegions(s, F.id).length} legions`, F.base, F.kind === 'player' ? null : `${who(s, F.id)} is hailed imperator by his legions.`);
 }

@@ -1,8 +1,9 @@
 import { GROUP_OF_PROVINCE } from '../data/world.js';
 import { streamFor } from './rng.js';
+import { legionName } from './core.js';
 import { adjustStanding, standing, treatyBetween } from './diplomacy.js';
 import { CONFIG } from './config.js';
-import { ITALY, distance } from './graph.js';
+import { ITALY, PROV, distance } from './graph.js';
 import { levyLegion, log, makeArmy, newFaction, newLegion, ownedLegions, ownedProvinces, takeLegion } from './core.js';
 import { loyalty } from './world.js';
 import { rome } from './rome.js';
@@ -49,10 +50,12 @@ export function history(s) {
   if (t === 0 && !s.minorSkip.vindex && ok('LUG')) {
     const V = spawnFaction(s, { id: 'vindex', kind: 'minor', road: 'charisma', stats: { gratia: 4, auct: 3, opes: 2, virtus: 1 }, legit: 30, treasury: 300, base: 'LUG', allies: ['galba'] }, ['LUG']);
     for (let i = 0; i < 3; i++) newLegion(s, { station: 'LUG', group: 'gaul', men: 5000, exp: 0.45, owner: V.id, loyalty: 65, levy: true });
+    log(s, 'vindex rises', 'LUG', 'Julius Vindex, governor of Lugdunensis, raises the Gauls against Nero.');
   }
   if (t === 1) {
     const base = claimantBase(s, 'TAR');
     spawnFaction(s, { id: 'galba', kind: 'hist', road: 'politics', stats: { auct: 5, opes: 3, virtus: 2, gratia: 1 }, legit: 48, treasury: 500, base, anchored: true, target: 'rome', stingy: true, allies: ['vindex'] }, [base, 'LUS'].filter(ok));
+    log(s, 'galba proclaimed', base, `At ${PROV[base].name}, the old governor Servius Sulpicius Galba lets his men hail him: legate of the Senate and People, he says, not yet emperor.`);
     const xg = s.legions['X-Gem'];
     if (xg && xg.owner === 'state' && !xg.army) { xg.loc = base; xg.station = base; takeLegion(s, xg, 'galba', 60); }
   }
@@ -68,7 +71,8 @@ export function history(s) {
     if (s.factions.galba?.alive) levyLegion(s, s.factions.galba, s.factions.galba.base, 'VII-Galb');
     if (s.factions.macer?.alive) levyLegion(s, s.factions.macer, 'AFR', 'I-Macr');
     // Nero dies. The Senate recognises the most legitimate proclaimed claimant.
-    s.factions.state.name = 'Senate';
+    s.factions.state.name = 'the Senate';
+    log(s, 'nero dies', 'ROM', 'Nero is dead. Abandoned by the Praetorians, he took his own life outside Rome. The Senate rules, for now.');
     for (const l of Object.values(s.legions)) if (l.owner === 'state') l.loyalty -= 12;
     const cands = Object.values(s.factions).filter((f) => f.alive && f.acclaimed && f.kind !== 'state');
     cands.sort((a, b) => b.legit - a.legit);
@@ -137,6 +141,21 @@ export function history(s) {
     s.threat.rhine += ginLegs < 2 ? 50 : 20; // Civilis
   }
   if (t === 22) s.threat.africa += 30; // Garamantes
+  if (t === 11) log(s, 'roxolani', 'MOE', 'The Roxolani cross the frozen Danube into Moesia.');
+  if (t === 14) log(s, 'brigantes', 'BRI', 'In Britain, Venutius leads the Brigantes in revolt.');
+  if (t === CONFIG.actIVTurn + 1) log(s, 'civilis', 'GIN', 'On the Rhine, the Batavian prince Julius Civilis stirs his people.');
+  if (t === 22) log(s, 'garamantes', 'AFR', 'The Garamantes raid the coast of Africa.');
+  // announce claimants who rose this month
+  const NEWS = {
+    macer: 'In Africa, Clodius Macer, legate of III Augusta, holds back the grain ships and raises a legion of his own.',
+    nymphidius: 'In Rome, the Praetorian prefect Nymphidius Sabinus reaches for the throne.',
+    capito: 'On the lower Rhine, Fonteius Capito is said to want the purple for himself.',
+    vitellius: 'On the Rhine, the legions refuse their oath and hail Aulus Vitellius emperor.',
+    otho: 'Marcus Salvius Otho, once Nero\'s friend, buys the Praetorians and claims the throne.',
+    albinus: 'In Mauretania, Lucceius Albinus takes the royal style, men say.',
+    vespasian: 'At Alexandria, the legions of the East hail Titus Flavius Vespasianus emperor. The last act begins.',
+  };
+  for (const f of Object.values(s.factions)) if (f.bornTurn === s.turn && NEWS[f.id] && !f.announced) { f.announced = true; log(s, `${f.id} rises`, f.base, NEWS[f.id]); }
   // in the final act the surviving claimants keep drawing men to their cause
   if (s.actIVOpen && t > CONFIG.actIVTurn && (t - CONFIG.actIVTurn) % s.diff.rivalLevyEvery === 0) {
     for (const f of Object.values(s.factions)) {
@@ -197,6 +216,6 @@ export function spawnProcedural(s) {
   const P = s.prov[l.loc];
   if (P.owner === prev.id || P.owner === 'state') { if (!(prev.kind === 'player' && ownedLegions(s, 'player').some((x) => x.loc === l.loc))) P.owner = F.id; }
   s.stats.procSpawned++;
-  log(s, `proc ${F.id} rises at ${l.loc} from ${prev.id}`);
+  log(s, `proc ${F.id} rises at ${l.loc} from ${prev.id}`, l.loc, prev.kind === 'player' ? `${F.name}, legate of ${legionName(l)}, turns against you and claims the purple.` : `${F.name}, legate of ${legionName(l)}, claims the purple in ${PROV[l.loc].name}.`);
   if (prev.kind === 'player') s.stats.ownLegateRevolts = (s.stats.ownLegateRevolts || 0) + 1;
 }

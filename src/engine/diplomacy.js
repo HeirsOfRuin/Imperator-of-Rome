@@ -3,7 +3,7 @@
 // same way, and every answer comes with its reasons in words.
 import { CLIENTS } from '../data/people.js';
 import { distance } from './graph.js';
-import { money, buyCost, hostile, log, newLegion, ownedLegions, ownedProvinces, strengthOf, takeLegion } from './core.js';
+import { legionName, who, money, buyCost, hostile, log, newLegion, ownedLegions, ownedProvinces, strengthOf, takeLegion } from './core.js';
 
 const key = (a, b) => (a < b ? a + '|' + b : b + '|' + a);
 export function standing(s, a, b) { return s.rel[key(a, b)] || 0; }
@@ -110,7 +110,7 @@ export function makeTreaty(s, a, b, type, opts = {}) {
   adjustStanding(s, a, b, 15);
   if (s.factions[a].kind === 'player' || s.factions[b].kind === 'player') s.stats.treaties = (s.stats.treaties || 0) + 1;
   else s.stats.aiTreaties = (s.stats.aiTreaties || 0) + 1;
-  log(s, `${type} between ${s.factions[a].name} and ${s.factions[b].name}`);
+  log(s, `${type} ${a} ${b}`, null, `${type === 'alliance' ? 'An' : 'A'} ${type} is agreed between ${who(s, a)} and ${who(s, b).replace('You', 'you')}.`);
   return t;
 }
 
@@ -127,7 +127,7 @@ export function submit(s, X, Y) {
   s.treaties = s.treaties.filter((t) => t.a !== X.id && t.b !== X.id);
   rebuildPeace(s);
   if (Y.kind === 'player') s.stats.submissions = (s.stats.submissions || 0) + 1;
-  log(s, `${X.name} submits to ${Y.name} with ${legs.length} legions`);
+  log(s, `${X.id} submits to ${Y.id}`, null, `${X.name} submits to ${who(s, Y.id).replace('You', 'you')}, bringing ${legs.length} legion${legs.length === 1 ? '' : 's'}.`);
 }
 
 // Y proposes to X. Player-to-AI and AI-to-AI answer at once; AI-to-player
@@ -171,7 +171,7 @@ export function breakTreaty(s, F, treatyId) {
   F.legit = Math.max(0, F.legit - (t.hostages ? 15 : 6));
   adjustStanding(s, F.id, other, -50);
   for (const Z of rivalsOf(s, F)) if (Z.id !== other) adjustStanding(s, F.id, Z.id, -10);
-  log(s, `${F.name} breaks the ${t.type} with ${s.factions[other].name}`);
+  log(s, `${F.id} breaks ${t.type} with ${other}`, null, `${who(s, F.id)} ${F.kind === 'player' ? 'break' : 'breaks'} the ${t.type} with ${who(s, other).replace('You', 'you')}.`);
   return { ok: true };
 }
 
@@ -200,8 +200,8 @@ export function subvert(s, F, l) {
   const p = Math.max(0.05, Math.min(0.8, 0.2 + 0.05 * F.stats.gratia + (50 - l.loyalty) / 100));
   const X = s.factions[l.owner];
   const ok = r.chance(p);
-  if (ok) { takeLegion(s, l, F.id, 40); l.bought = true; log(s, `${l.id} goes over to ${F.name}`, l.loc); }
-  if (r.chance(0.3)) { adjustStanding(s, F.id, X.id, -40); F.legit = Math.max(0, F.legit - 3); log(s, `${X.name} learns of ${F.name}'s gold among his legions`); return { ok, discovered: true }; }
+  if (ok) { takeLegion(s, l, F.id, 40); l.bought = true; log(s, `${l.id} subverted by ${F.id}`, l.loc, `${legionName(l)} goes over to ${who(s, F.id).replace('You', 'you')}.`); }
+  if (r.chance(0.3)) { adjustStanding(s, F.id, X.id, -40); F.legit = Math.max(0, F.legit - 3); log(s, `${X.id} discovers ${F.id}`, null, `${X.name} learns of ${F.kind === 'player' ? 'your' : F.name + "'s"} gold among his legions.`); return { ok, discovered: true }; }
   return { ok, discovered: false };
 }
 
@@ -227,7 +227,7 @@ export function askClient(s, F, cid) {
   newLegion(s, { station: c.near, loc: s.prov[c.near].owner === F.id ? c.near : ownedProvinces(s, F.id).sort((a, b) => distance(a.id, c.near) - distance(b.id, c.near))[0].id, group: c.group, men: c.men, exp: c.exp, owner: F.id, loyalty: 60, levy: true, payMult: 0.8, client: c.id });
   if (c.legit) F.legit = Math.max(0, F.legit + c.legit);
   if (F.kind === 'player') s.stats.clients = (s.stats.clients || 0) + 1;
-  log(s, `${c.name} sends ${c.men} men to ${F.name}`, c.near);
+  log(s, `client ${c.id} -> ${F.id}`, c.near, `${c.name.charAt(0).toUpperCase() + c.name.slice(1)} ${/^the /.test(c.name) ? 'send' : 'sends'} ${c.men} men to ${who(s, F.id).replace('You', 'you')}.`);
   return { ok: true };
 }
 

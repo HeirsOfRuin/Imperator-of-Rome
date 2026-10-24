@@ -1,6 +1,6 @@
 import { CONFIG, FIGHT_RATIO, NEG_THRESHOLD, ROAD_PREFS } from './config.js';
-import { ADJ } from './graph.js';
-import { money, armyPower, bodyGroup, bodyLoyalty, bodyMen, bodyPower, buyCost, cull, debtTotal, flipProvince, gainBody, hostile, killFaction, log, negotiateChance, ownedLegions, retreatLegion, setAside, takeLegion } from './core.js';
+import { ADJ, PROV } from './graph.js';
+import { legionName, who, money, armyPower, bodyGroup, bodyLoyalty, bodyMen, bodyPower, buyCost, cull, debtTotal, flipProvince, gainBody, hostile, killFaction, log, negotiateChance, ownedLegions, retreatLegion, setAside, takeLegion } from './core.js';
 import { hold } from './rome.js';
 
 // One resolver for encounters. The four options are separate functions; the
@@ -46,7 +46,8 @@ export function doBuy(s, F, A, b, ctx, promise) {
   if (promise) gainBody(s, F, b, 36 + 2 * F.stats.opes, cost * CONFIG.promiseMult, true);
   else gainBody(s, F, b, 40 + 2 * F.stats.opes, 0, true);
   if (ctx.act1) F.suspicion += 8 * s.diff.suspicionMult;
-  log(s, `${F.id} ${promise ? 'promises money to' : 'buys'} ${b.legion ? b.legion.id : b.prov ? 'the garrison of ' + b.prov.id : 'them'}`, b.legion ? b.legion.loc : b.prov?.id);
+  log(s, `${F.id} ${promise ? 'promises money to' : 'buys'} ${b.legion ? b.legion.id : b.prov ? 'the garrison of ' + b.prov.id : 'them'}`, b.legion ? b.legion.loc : b.prov?.id,
+    b.legion ? (F.kind === 'player' ? `${legionName(b.legion)} takes your ${promise ? 'promises' : 'money'}.` : `${who(s, F.id)} buys ${legionName(b.legion)}.`) : null);
   return 'cleared';
 }
 
@@ -170,7 +171,7 @@ export function fight(s, F, A, b, ctx) {
         money(s, X, -cost, 'bought ' + target.id + ' before battle');
         const XA = X === F ? A : b.army;
         takeLegion(s, target, X.id, 40); target.bought = true; target.army = XA.id; target.loc = XA.loc; XA.legions.push(target.id);
-        log(s, `${X.id} buys ${target.id} from ${Y.id} before the battle`);
+        log(s, `${X.id} buys ${target.id} from ${Y.id} before the battle`, XA.loc, `On the eve of battle, ${legionName(target)} goes over to ${who(s, X.id).replace('You', 'you')}.`);
       }
     }
     if (!b.army.legions.length) return 'cleared';
@@ -181,7 +182,7 @@ export function fight(s, F, A, b, ctx) {
     const back = ADJ[b.army.loc].map((e) => e.to).find((p) => s.prov[p].owner === b.army.owner && !Object.values(s.armies).some((x) => x.loc === p && hostile(s, x.owner, b.army.owner)));
     if (ratioD < 0.75 && back && r.chance(0.7)) {
       b.army.loc = back; b.army.path = []; for (const id of b.army.legions) s.legions[id].loc = back;
-      log(s, `${b.army.owner} withdraws from ${A.loc} before ${F.id}`);
+      log(s, `${b.army.owner} withdraws from ${A.loc} before ${F.id}`, A.loc, `${who(s, b.army.owner)} ${b.army.owner === 'player' ? 'fall' : 'falls'} back from ${PROV[A.loc].name} rather than fight ${who(s, F.id).replace('You', 'you')}.`);
       return 'cleared';
     }
   }
@@ -193,7 +194,9 @@ export function fight(s, F, A, b, ctx) {
   const pa = (A ? armyPower(s, A) : ctx.power) * r.float(0.85, 1.15);
   const pd = bodyPower(s, b) * r.float(0.85, 1.15);
   const attWins = pa > pd;
-  if (isPlayer || large) log(s, `${large ? 'BATTLE' : 'fight'} ${F.id}(${Math.round(pa)}) vs ${D.id} ${b.kind}(${Math.round(pd)}) at ${A ? A.loc : 'camp'} -> ${attWins ? F.id : D.id}`);
+  if (isPlayer || large) log(s, `${large ? 'BATTLE' : 'fight'} ${F.id}(${Math.round(pa)}) vs ${D.id} ${b.kind}(${Math.round(pd)}) at ${A ? A.loc : 'camp'} -> ${attWins ? F.id : D.id}`, A ? A.loc : null,
+    large ? `Battle at ${PROV[A.loc].name}: ${who(s, attWins ? F.id : D.id)} ${attWins ? (F.kind === 'player' ? 'win' : 'wins') : (D.kind === 'player' ? 'win' : 'wins')} against ${who(s, attWins ? D.id : F.id).replace('You', 'you')}.`
+      : isPlayer ? `${A ? PROV[A.loc].name : 'In the camp'}: ${(attWins ? F : D).kind === 'player' ? 'your men win' : 'your men are beaten'} against ${b.kind === 'town' ? 'a walled town' : b.kind === 'aux' ? 'the garrison' : b.kind === 'raid' ? 'raiders' : b.kind === 'legion' ? legionName(b.legion) : 'them'}.` : null);
   const lw = attWins ? pd / pa : pa / pd;
   const loserCas = r.float(0.22, 0.38), winnerCas = r.float(0.05, 0.12) * lw;
   const vA = F.stats.virtus, vD = D.stats.virtus;
@@ -222,7 +225,8 @@ export function fight(s, F, A, b, ctx) {
     if (b.kind === 'army') defeatArmy(s, b.army, F, A, large);
     else if (b.kind === 'legion' && s.legions[b.legion.id]) {
       const l = b.legion;
-      if (r.chance(0.5)) { takeLegion(s, l, F.id, 30); if (A) { l.army = A.id; l.loc = A.loc; A.legions.push(l.id); } }
+      const covert = l.owner === 'player' && !s.factions.player.rebel;
+      if (r.chance(0.5) && !covert) { takeLegion(s, l, F.id, 30); if (A) { l.army = A.id; l.loc = A.loc; A.legions.push(l.id); } }
       else retreatLegion(s, l);
     } else if (b.kind === 'aux') {
       b.prov.aux = 0;

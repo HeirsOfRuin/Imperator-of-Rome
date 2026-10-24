@@ -1,7 +1,7 @@
 import { GROUP_OF_PROVINCE } from '../data/world.js';
 import { CONFIG, ROAD_STAT } from './config.js';
 import { ITALY, distance } from './graph.js';
-import { money, hostile, killFaction, log, newLegion, ownedLegions, ownedProvinces, takeLegion } from './core.js';
+import { legionName, who, money, hostile, killFaction, log, newLegion, ownedLegions, ownedProvinces, takeLegion } from './core.js';
 import { history } from './history.js';
 import { loyalty } from './world.js';
 
@@ -12,7 +12,7 @@ export function rome(s) {
   const terror = O && Object.values(s.legions).filter((l) => ITALY.includes(l.loc) && l.owner === owner).length >= 5;
   if (O && O.kind !== 'state' && O.acclaimed && !italyHostile && (O.legit >= 25 || terror) && s.emperor !== owner) {
     s.emperor = owner;
-    log(s, `EMPEROR ${owner}`);
+    log(s, `EMPEROR ${owner}`, 'ROM', owner === 'player' ? 'The Senate meets and votes you the powers of the emperor. The clock of your reign begins.' : `The Senate recognises ${O.name} as emperor.`);
     O.legit = Math.min(100, O.legit + (O.legit >= 25 ? 15 : 5)); // a frightened Senate gives less
     for (const l of ownedLegions(s, owner)) {
       l.debt += l.id === 'PRAET' ? s.diff.praetorianDonative : CONFIG.donativePerLegion;
@@ -73,7 +73,7 @@ export function hold(s) {
     const to = rivals.length ? rivals.sort((a, b) => distance(l.loc, a.base) - distance(l.loc, b.base))[0].id : 'state';
     takeLegion(s, l, to, 50);
     if (E.kind === 'player') s.stats.generalsLost = (s.stats.generalsLost || 0) + 1;
-    log(s, `general with ${l.id} goes over to ${to}`);
+    log(s, `general with ${l.id} goes over to ${to}`, l.loc, E.kind === 'player' ? `The legate of ${legionName(l)} goes over to ${who(s, to)}.` : null);
   }
 }
 
@@ -82,7 +82,7 @@ export function checks(s) {
   if (!P.alive) return;
   if (s.actIVOpen && !P.acclaimed && s.turn >= CONFIG.actIVTurn + CONFIG.declareDeadline) killFaction(s, P, 'history passed you by');
   if (s.actIVOpen && P.acclaimed && !P.ownsProvince) killFaction(s, P, 'history passed you by');
-  if (!ownedLegions(s, 'player').length) killFaction(s, P, P.ownsProvince ? 'army destroyed' : 'recalled');
+  if (!ownedLegions(s, 'player').length) killFaction(s, P, P.ownsProvince ? 'army destroyed' : 'lost your legion');
   for (const f of Object.values(s.factions)) {
     if (!f.alive || f.kind === 'state' || f.kind === 'player') continue;
     const legs = ownedLegions(s, f.id).length;

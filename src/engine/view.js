@@ -4,10 +4,12 @@ import { PROVINCES } from '../data/world.js';
 import { CLIENTS } from '../data/people.js';
 import { CONFIG } from './config.js';
 import { PROV, ITALY, distance } from './graph.js';
-import { bodiesAt, debtTotal, ownedLegions, ownedProvinces, strengthOf, armyPower } from './core.js';
+import { legionName, bodiesAt, debtTotal, ownedLegions, ownedProvinces, strengthOf, armyPower } from './core.js';
 import { optionInfo } from './combat.js';
 import { act1Targets, bodyKey, lettersAllowed, TAX_LEVELS } from './actions.js';
 import { standing, treatyBetween, evaluate, seat, clientStatus, canSubvert, subvertCost, decreeCost } from './diplomacy.js';
+
+const cap = (t) => t.charAt(0).toUpperCase() + t.slice(1);
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 export function monthName(turn) { const m = (2 + turn) % 12, y = 68 + Math.floor((2 + turn) / 12); return `${MONTHS[m]} AD ${y}`; }
@@ -28,7 +30,7 @@ const k = (x) => Math.round(x);
 
 function legionView(s, l) {
   return {
-    id: l.id, name: l.id.replace('-', ' ').replace('Aug', 'Augusta').replace('Gem', 'Gemina'), men: l.men, loyalty: Math.round(l.loyalty), exp: l.exp,
+    id: l.id, name: legionName(l), men: l.men, loyalty: Math.round(l.loyalty), exp: l.exp,
     loc: l.loc, station: l.station, army: l.army, garrison: !!l.garrison, debt: k(l.debt), debtDue: l.debtDue, overdue: !!l.overdue,
     bought: !!l.bought, levy: !!l.levy, client: l.client || null, pay: k(l.men * CONFIG.payPerMan * l.payMult),
   };
@@ -36,7 +38,7 @@ function legionView(s, l) {
 
 function bodyView(s, F, A, b, ctx) {
   const info = optionInfo(s, F, A, b, ctx);
-  const who = b.kind === 'legion' ? b.legion.id : b.kind === 'army' ? `${s.factions[b.army.owner].name}'s army (${b.army.legions.length} legions)` : b.kind === 'aux' ? `The garrison of ${PROV[b.prov.id].name}` : b.kind === 'town' ? `A walled town of ${PROV[b.prov.id].name}` : 'Raiders';
+  const who = b.kind === 'legion' ? legionName(b.legion) : b.kind === 'army' ? `${s.factions[b.army.owner].name}'s army (${b.army.legions.length} legions)` : b.kind === 'aux' ? `The garrison of ${PROV[b.prov.id].name}` : b.kind === 'town' ? `A walled town of ${PROV[b.prov.id].name}` : 'Raiders';
   const men = b.kind === 'army' ? b.army.legions.reduce((a, id) => a + s.legions[id].men, 0) : b.kind === 'legion' ? b.legion.men : b.kind === 'aux' ? b.prov.aux : b.town ? b.town.men : 0;
   const owner = b.kind === 'army' ? b.army.owner : b.kind === 'legion' ? b.legion.owner : b.prov.owner;
   const comrades = F.comrades && (b.legion ? b.legion.group : null) === F.comrades;
@@ -81,7 +83,7 @@ export function view(s) {
       rev: d.rev, grain: d.grain, unrest: Math.round(q.unrest), tax: q.tax || 'normal', grainPolicy: q.grainPolicy || 'embargo', aux: q.aux,
       towns: q.towns.filter((t) => t.men > 0).length, frontier: d.frontier || null, threat: d.frontier ? Math.round(s.threat[d.frontier]) : null,
       breach: q.breachUntil > s.turn, mine,
-      legions: legs.map((l) => ({ id: l.id, owner: l.owner, men: l.men })),
+      legions: legs.map((l) => ({ id: l.id, name: legionName(l), owner: l.owner, men: l.men })),
       taxes: mine ? TAX_LEVELS.map((t) => ({ level: t, rev: k(d.rev * ({ light: 0.85, normal: 1, heavy: 1.4, extort: 1.8 }[t])), unrest: { light: -5, normal: -3, heavy: 3, extort: 9 }[t] })) : null,
       canLevy: mine && !P.levy && d.tier !== 'proc' && q.unrest < 70 && P.treasury >= CONFIG.levyCost,
       canLetter: P.rebel && q.owner === 'state' && !legs.length && myProvs.some((m) => distance(m.id, d.id) <= 1),
@@ -113,7 +115,7 @@ export function view(s) {
   if (P.alive && !P.ownsProvince) {
     const t = act1Targets(s);
     act1 = {
-      province: P.base, provName: PROV[P.base].name, suspicion: Math.round(P.suspicion), approached: P.approached === s.turn,
+      province: P.base, provName: PROV[P.base].name, neroLives: s.turn < 3, suspicion: Math.round(P.suspicion), approached: P.approached === s.turn,
       share: Math.round((100 * t.menMine) / Math.max(1, t.menAll)), governorOpen: t.governorOpen,
       bodies: t.bodies.map((b) => bodyView(s, P, null, b, { act1: true, power: t.power })),
     };
@@ -128,7 +130,7 @@ export function view(s) {
   } : null;
 
   const legatesFar = Object.values(s.legions).filter((l) => !canSubvert(s, P, l) || canSubvert(s, P, l) === 'Not enough money').filter((l) => s.factions[l.owner].kind !== 'state' && l.owner !== 'player')
-    .map((l) => ({ id: l.id, owner: s.factions[l.owner].name, loc: l.loc, loyalty: Math.round(l.loyalty), cost: k(subvertCost(s, P, l)), ok: !canSubvert(s, P, l) }));
+    .map((l) => ({ id: l.id, name: legionName(l), owner: s.factions[l.owner].name, loc: l.loc, loyalty: Math.round(l.loyalty), cost: k(subvertCost(s, P, l)), ok: !canSubvert(s, P, l) }));
 
   return {
     turn: s.turn, month: monthName(s.turn), act: s.actIVOpen ? 4 : !P.ownsProvince ? 1 : !P.acclaimed ? 2 : 3,
@@ -144,8 +146,9 @@ export function view(s) {
     army: A ? { id: A.id, loc: A.loc, dest: A.dest, path: A.path, power: k(armyPower(s, A) / 1000), legions: A.legions.map((id) => legionView(s, s.legions[id])), halted: s.pending.some((p) => p.army === A.id) } : null,
     legions: myLegs.map((l) => legionView(s, l)),
     provinces, factions, pending, act1, rome,
+    armies: Object.values(s.armies).filter((x) => x.legions.length && s.factions[x.owner]?.alive && s.factions[x.owner].kind !== 'state').map((x) => ({ id: x.id, owner: x.owner, ownerName: s.factions[x.owner].name, color: factionColor(s, x.owner), loc: x.loc, dest: x.dest, path: x.path, legions: x.legions.length, mine: x.owner === 'player' })),
     offers: s.offers.filter((o) => s.factions[o.from]?.alive).map((o) => ({ ...o, fromName: s.factions[o.from]?.name, targetName: o.target ? s.factions[o.target]?.name : null })),
-    clients: CLIENTS.map((c) => ({ id: c.id, name: c.name, near: c.near, men: c.men, cost: c.cost, why: clientStatus(s, P, c), standing: Math.round(standing(s, 'player', 'client:' + c.id)), parthian: !!c.legit })),
+    clients: CLIENTS.map((c) => ({ id: c.id, name: cap(c.name), near: c.near, men: c.men, cost: c.cost, why: clientStatus(s, P, c), standing: Math.round(standing(s, 'player', 'client:' + c.id)), parthian: !!c.legit })),
     subvertable: legatesFar.slice(0, 12),
     dispatches: visibleDispatches(s),
     ledger: s.ledger.filter((r) => r[0] === s.turn - 1).reduce((acc, [, x, why]) => { const key = why.split(':')[0]; acc[key] = (acc[key] || 0) + x; return acc; }, {}),

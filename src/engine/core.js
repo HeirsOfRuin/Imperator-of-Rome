@@ -1,8 +1,25 @@
 import { GROUP_OF_PROVINCE, BACKGROUND } from '../data/world.js';
 import { streamFor } from './rng.js';
+import { CLIENTS } from '../data/people.js';
 import { CONFIG, ROAD_STAT, TOWN_MEN } from './config.js';
 import { ADJ, PROV, isWinter, route } from './graph.js';
 import { loyalty } from './world.js';
+
+const LEGION_NAMES = {
+  'II-Aug': 'II Augusta', 'IX-Hisp': 'IX Hispana', 'XX-VV': 'XX Valeria Victrix', 'I-Germ': 'I Germanica', 'V-Alaud': 'V Alaudae',
+  'XV-Prim': 'XV Primigenia', 'XVI-Gall': 'XVI Gallica', 'IV-Mac': 'IV Macedonica', 'XXI-Rap': 'XXI Rapax', 'XXII-Prim': 'XXII Primigenia',
+  'VI-Vic': 'VI Victrix', 'X-Gem': 'X Gemina', 'XIII-Gem': 'XIII Gemina', 'XI-Claud': 'XI Claudia', 'XIV-Gem': 'XIV Gemina',
+  'VII-Claud': 'VII Claudia', 'VIII-Aug': 'VIII Augusta', 'III-Gall': 'III Gallica', 'IV-Scyth': 'IV Scythica', 'VI-Ferr': 'VI Ferrata',
+  'XII-Fulm': 'XII Fulminata', 'V-Mac': 'V Macedonica', 'X-Fret': 'X Fretensis', 'XV-Apoll': 'XV Apollinaris', 'III-Cyr': 'III Cyrenaica',
+  'XXII-Deiot': 'XXII Deiotariana', 'III-Aug': 'III Augusta', 'I-Ital': 'I Italica', 'VII-Galb': 'VII Galbiana', 'I-Macr': 'I Macriana',
+  'I-Adiut': 'I Adiutrix', PRAET: 'The Praetorian Guard',
+};
+export function legionName(l) {
+  if (LEGION_NAMES[l.id]) return LEGION_NAMES[l.id];
+  if (l.client) { const c = CLIENTS.find((x) => x.id === l.client); return c ? `Men of ${c.name.replace(/^the /, 'the ')}` : 'Allied troops'; }
+  if (l.group === 'gaul') return 'Gallic levy';
+  return `New legion of ${PROV[l.station]?.name || 'the provinces'}`;
+}
 
 export const KNOWN_NAMES = {
   state: 'the Senate', player: 'you', barbarians: 'the barbarians',
@@ -85,10 +102,12 @@ export function rngs(s) {
   };
 }
 
-export function log(s, msg, loc) {
+// msg: the trace line for tools. text: the dispatch a human reads (none = not news).
+export function log(s, msg, loc, text) {
   if (s.opts.trace) s.events.push(`t${s.turn} ${msg}`);
-  if (s.opts.human) s.dispatches.push({ t: s.turn, loc: loc || null, text: msg });
+  if (s.opts.human && text !== null) s.dispatches.push({ t: s.turn, loc: loc || null, text: text || msg });
 }
+export function who(s, id) { return id === 'player' ? 'You' : s.factions[id]?.name || id; }
 
 export const ownedLegions = (s, fid) => Object.values(s.legions).filter((l) => l.owner === fid);
 
@@ -101,6 +120,9 @@ export function hostile(s, a, b) {
   const A = s.factions[a], B = s.factions[b];
   if (!A || !B) return false;
   if (A.allies[b] || B.allies[a]) return false;
+  // in Act I your legion is still the Senate's in everyone's eyes
+  if (A.kind === 'player' && !A.rebel && !A.acclaimed) return b !== 'state' && hostile(s, 'state', b);
+  if (B.kind === 'player' && !B.rebel && !B.acclaimed) return a !== 'state' && hostile(s, a, 'state');
   if (s.peace && s.peace[a < b ? a + '|' + b : b + '|' + a]) return false;
   if (a === 'state') return s.emperor !== b && (B.rebel || B.acclaimed);
   if (b === 'state') return s.emperor !== a && (A.rebel || A.acclaimed);
@@ -240,6 +262,11 @@ export function cull(s) {
 
 export function retreatLegion(s, l) {
   const F = s.factions[l.owner];
+  if (F.kind === 'player' && !F.rebel) {
+    // still the Senate's man: fall back to a neighbouring loyal province and plot there
+    const to = ADJ[l.loc].map((e) => e.to).find((p) => s.prov[p].owner === 'state');
+    if (to) { l.loc = to; l.station = to; F.base = to; log(s, `player falls back to ${to}`, to, `Your legion falls back to ${PROV[to].name}. You will have to win men there instead.`); return; }
+  }
   const opts = ADJ[l.loc].map((e) => e.to).filter((p) => s.prov[p].owner === l.owner);
   if (opts.length) { if (l.army) takeLegion(s, l, l.owner, l.loyalty); l.loc = opts[0]; return; }
   if (F.anchored && F.base && !s.actIVOpen) { if (l.army) takeLegion(s, l, l.owner, l.loyalty); l.loc = F.base; return; }
@@ -248,7 +275,7 @@ export function retreatLegion(s, l) {
 
 export function killFaction(s, F, cause) {
   if (!F.alive) return;
-  log(s, `DEAD ${F.id}: ${cause}`);
+  log(s, `DEAD ${F.id}: ${cause}`, null, F.kind === 'player' ? null : cause === 'eliminated' ? `${F.name} has lost his last legion. His cause is finished.` : cause === 'death' ? `${F.name} has fallen in battle.` : `${F.name} is dead: ${cause}.`);
   F.alive = false;
   if (s.emperor === F.id) s.emperor = null;
   if (F.kind === 'player') { s.outcome = { win: false, cause, turn: s.turn }; return; }

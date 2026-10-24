@@ -5,7 +5,7 @@ failing, the frontier armies are restless, and four men will try to take the
 throne. You intend to be the fifth, and the last.
 
 Status: **Stage 1 spec, approved in outline by the author 2026-10-24.**
-Next gate: Stage 2 kill-gate sim (numbers only, no UI). See §14.
+Next gate: Stage 2 kill-gate sim (numbers only, no UI). See §16.
 
 ---
 
@@ -39,6 +39,9 @@ the unhistorical fifth.
 4. **History moves without you.** Rivals act on the same rules as the player.
    Frontiers flare when stripped. News arrives late.
 5. **Taking Rome is half the job.** The win is holding it.
+6. **Four roads to the throne.** Wealth, military power, politics and
+   personal charisma each carry a run to the win. Who you were before the
+   game decides which road is open to you.
 
 ## 3. Core loop (one turn = one month)
 
@@ -64,7 +67,7 @@ a full campaign to a win runs about 40 monthly turns.
 | I | Legatus | March 68 | Control your province: win the other legions, remove or turn the governor | Fellow legates, the governor, procurators, procedural rivals |
 | II | Acclamation | You control your province | Build strength, take neighbours, pick the moment to be proclaimed | Historical minor claimants (§8), procedural claimants; Galba proclaimed (April 68) |
 | III | The March | You are proclaimed, or January 69 | Take provinces, secure grain and money, close on Italy | Galba, Otho, Vitellius active and anchored; Vespasian joins July 69; minor claimants still appear |
-| IV | Year of Five Emperors | The later of July 69 or your acclamation | Take Rome, be recognised by the Senate, hold it for 18 months | The four historical claimants, anchoring off |
+| IV | Year of Five Emperors | The later of July 69 or your acclamation | Take Rome, be recognised by the Senate, hold it (12 / 18 / 24 months by difficulty) | The four historical claimants, anchoring off |
 
 **Acts I–III play differently.**
 - **Act I** is close-in politics and small fights inside one province: three or
@@ -255,18 +258,101 @@ legions back whether you like it or not.
 4. **Losing the throne.** You lose Rome during the hold and cannot retake it
    within three months.
 
-## 12. The one way to win
+## 12. One win, four roads
 
-Take Rome, be recognised by the Senate (a law conferring the imperial powers,
-like the surviving *lex de imperio Vespasiani*), and **hold it for 18 months**.
-Difficulty settings change the hold to 12 or 24 months. The other claimants
-do not need to be dead, but while they live they will come for you.
+The win is the same on every run: take Rome, be recognised by the Senate (a
+law conferring the imperial powers, like the surviving *lex de imperio
+Vespasiani*), and **hold it** for the months your difficulty sets (§14). The
+other claimants do not need to be dead, but while they live they will come for
+you.
 
-Holding is its own game: pay the debts your promises ran up, keep the grain
-coming, keep the Praetorians bought, keep the Senate frightened or flattered,
-and stop your generals becoming the next you.
+How you get there, and how you hold it, depends on your road. Each road leans
+on one stat (§13) and one encounter option (§6), and each has its own way to
+hold Rome.
 
-## 13. Starting provinces
+| Road | Stat | Favoured option | How it takes legions | How it holds Rome | Its weakness |
+|---|---|---|---|---|---|
+| **Wealth** | Opes | Buy | Pays garrisons and legions over | Pays the Praetorians, funds the grain dole, buys senators | Debt; anyone can outbid you; the treasury runs dry in the hold |
+| **Military** | Virtus | Fight | Beats them, then takes the survivors | Terror; a garrisoned Italy; victorious legions kept close | Casualties; frontiers stripped; your own generals grow ambitious |
+| **Politics** | Auctoritas | Negotiate (oaths, law, office) | Legal authority; governors turned by letters and appointments | The Senate's law; consulships for allies; legitimacy | Slow; weak against a rival with more legions |
+| **Charisma** | Gratia | Negotiate (appeals, comrades) | Defections; legions that follow the man, not the money | The crowd and the army love you; mutiny is rare | Depends on your presence; loyalty fades where you are not |
+
+Rules that keep the roads honest:
+- **No road is closed.** A rich legate can still fight, and a soldier can still
+  bribe. Each road just makes one option cheaper or stronger.
+- **Mixed roads are allowed.** Most good runs will lean on two. The ending
+  names the road you took, based on how you actually won.
+- **Every road must win at Legate.** The kill gate (§16) measures win rate by
+  road; no road may dominate.
+
+Holding Rome on any road means paying the debts your promises ran up, keeping
+the grain coming, keeping the Praetorians bought, keeping the Senate frightened
+or flattered, and stopping your generals becoming the next you.
+
+## 13. The legate: background and stats
+
+Before the game starts you build your legate through his life so far: about
+seven short choices, following the real Roman senatorial career (the *cursus
+honorum*). Each choice sets stats, gives you a **friend** (a named person who
+appears in the game), and sometimes an **enemy** or a liability. A quick-start
+option picks a ready-made legate for each road.
+
+### Stats
+
+| Stat | Latin | What it does |
+|---|---|---|
+| Wealth | Opes | Starting fortune, estates, credit; cheaper buying |
+| Military | Virtus | Fight resolution, legion respect, recovery from defeat |
+| Politics | Auctoritas | Legitimacy, Senate standing, letters and appointments |
+| Charisma | Gratia | Negotiation, appeals to comrades, loyalty of the troops near you |
+
+Stats start between about 1 and 5 and move during play. Friends and enemies
+are named people with their own careers in the game: a fellow tribune who now
+commands a legion, a moneylender in Rome, a freedman in the palace, a senator
+who owes you a favour.
+
+### The choices
+
+| # | Stage (approx. age) | Options | Gives |
+|---|---|---|---|
+| 1 | **Family** | Old patrician house; plebeian nobility; new man from Italy; new man from the provinces (Spain, Narbonensis) | Starting Auctoritas and Opes; old families start with legitimacy, new men with fewer enemies |
+| 2 | **Upbringing** | Rhetoric schools in Rome; Greek education in Athens or Rhodes; raised on the family estates; raised in a frontier province | Gratia, Auctoritas or Opes; a provincial upbringing gives friends in that province |
+| 3 | **First office (about 18)** | Mint (*tresviri monetales*); courts (*decemviri stlitibus iudicandis*); police (*tresviri capitales*); roads (*quattuorviri viarum curandarum*) | Opes, Auctoritas, a Rome contact |
+| 4 | **Military tribune (about 20–23)** | With a Rhine legion; on the Danube; in the East under Corbulo; in Britain during Boudicca's revolt (60–61) | Virtus, and a shared-service tag with that legion, which opens the appeal-to-comrades option against it later |
+| 5 | **Quaestor (about 25)** | In Rome; in a province under a governor (who becomes your patron); attached to Nero's court | Opes, Auctoritas or a palace contact; Nero's court gives contacts and an enemy |
+| 6 | **Aedile or tribune of the plebs (about 27–30)** | Aedile who paid for lavish games; aedile who kept the books; tribune of the plebs | Gratia at the cost of Opes; Opes; Auctoritas |
+| 7 | **AD 65, the Pisonian conspiracy** | Kept silent; informed on others; friends were executed; you were in the plot and not named | Each choice trades safety, enemies and contacts. Informing makes you trusted by Nero's men and hated by survivors |
+
+Then the praetorship, and your posting as legate of a legion in your start
+province (§15). The background does not lock a road; it makes one or two of
+them cheaper.
+
+**Historical check.** Ages and office order follow the standard senatorial
+career of the period. Gaps are normal and some steps could be skipped; mark
+these as typical, not mandatory.
+
+## 14. Difficulty
+
+Three levels, named for the ranks you would rather be in the war.
+
+| | **Legionary** (easy) | **Centurion** (normal) | **Legate** (hard) |
+|---|---|---|---|
+| Target win rate, competent play | about 35% | about 15% | **5%** |
+| Procedural rivals per act | 1 | 2 | 3–4 |
+| Historical minor claimants | Some stand aside | All active | All active; more of them can win |
+| Rival behaviour | Slow; rarely outbid you | Act on the player's rules | Act on the player's rules, ally against the leader |
+| Hold Rome for | 12 months | 18 months | 24 months |
+| Loyalty drop with distance | Halved | Normal | Normal; promises fall due sooner |
+| Frontier threat | Low | Normal | High |
+| News lag | Rivals shown as of now | Normal | Normal; more false rumour |
+| Starting funds | +50% | Normal | Normal |
+| Encounter odds | Wider margin to win a fight | Normal | Normal |
+
+The Legate target is set; the easier two are proposals until the kill gate
+measures them. "Competent play" means the reference bot policies (§16); human
+win rates will differ and get calibrated at playtest.
+
+## 15. Starting provinces
 
 You pick a province none of the four historical claimants holds. The start sets
 difficulty and play style.
@@ -283,7 +369,7 @@ difficulty and play style.
 
 Legion counts shift during 68–69 as units move; see `docs/PROVINCES.md`.
 
-## 14. Next stage: the kill gate
+## 16. Next stage: the kill gate
 
 A numbers-only sim (no UI, no art): fixed policies × seeds × the full campaign.
 It must show:
@@ -292,7 +378,13 @@ It must show:
   goes bankrupt; fight-everything runs out of men; bypass-everything gets cut
   off.
 - **Fight count lands in range:** 30–50 small fights, 3–5 large battles.
-- **Win reachable, not trivial.** Win-rate target to be set by the author.
+- **Win rates by difficulty:** Legate about 5%, Centurion about 15%,
+  Legionary about 35%, each with its run count and noise floor.
+- **Every road wins.** A reference bot per road (wealth, military, politics,
+  charisma), all with a sensible background for that road. At Legate each
+  road wins between about 3% and 8%; none dominates.
+- **Background matters but does not decide.** A wealth background on the
+  military road should be worse, not hopeless.
 - **No dominant start.** Every start province wins sometimes.
 - **The anchor holds** without visible plot armour: count how often a
   historical claimant reaches zero strength before Act IV.
@@ -301,14 +393,15 @@ It must show:
 If the decisions aren't interesting as a table of numbers, no amount of UI
 fixes it.
 
-## 15. Assumptions and open questions
+## 17. Assumptions and open questions
 
 | Item | Assumed | Needs the author |
 |---|---|---|
 | Turn length | One month | — |
 | Start date | March 68 (Vindex's revolt) | — |
-| Player | A fictional legionary legate, background chosen at the start (old family, new man) | Background options |
-| Win rate target | Not set | Yes |
+| Player | A fictional legionary legate built through seven background choices (§13) | — |
+| Win rate targets | Legate 5% (set); Centurion 15% and Legionary 35% (proposed) | Confirm the easier two |
+| Difficulty name | "Legionary" rather than "Legionnaire" (the Roman term) | Confirm |
 | Stack | Vanilla ES modules, no build step, phone-first PWA (the simulation-game shape used in Civ-City, The Lists, Football) | Confirm at Stage 3 |
 | Art | Not decided | Visual identity at Stage 5 |
 
@@ -316,7 +409,10 @@ fixes it.
 
 | Date | Decision |
 |---|---|
+| 2026-10-24 | **Four roads.** The author: "Players should be able to look at this game and complete it in multiple ways, like being rich, militarily powerful, politically powerful, and charismatic." One win condition, four roads (§12), each tied to a stat and an encounter option, each with its own way to hold Rome. Kill gate must show each road winning at Legate. |
+| 2026-10-24 | **Background.** The author: "Have the background of like early life and other positions help to help determine stats and friends. Through a few choices or such." Seven choices along the cursus honorum set stats, friends and enemies (§13). |
+| 2026-10-24 | **Difficulty.** The author: "Make 3 difficult levels with different amounts of rivals, along other affects. Legionnaire, Centurion, Legate. Legate should be at the 5% win rate, each other is easier." Three levels (§14); Legate at 5%; easier targets proposed at 15% and 35%. |
 | 2026-10-24 | **Small fights.** The author: "Huge battles may be rare, but I want to see lots of smaller fights. If you can't buy out a garrison or legion, they'll need to be negotiated with or fought." Encounter model with buy / negotiate / fight / bypass; target 30–50 small fights and 3–5 large battles per campaign. |
 | 2026-10-24 | **Rivals.** The author: "There should be plenty of other rivals coming up in every act, but only the 4 historical ones make it to the last act, and you are the unhistorical 5th." Anchoring rule: historical claimants defeated, not killed, before Act IV. |
 | 2026-10-24 | **Map.** The author: "The map of Rome at the time should be the full map, with the historical number of provinces." About 37 provinces plus four Italy regions, with depth by tier. |
-| 2026-10-24 | **Win condition.** Take Rome, gain Senate recognition, hold for 18 months (12 or 24 by difficulty). Approved by the author. |
+| 2026-10-24 | **Win condition.** Take Rome, gain Senate recognition, hold for 18 months (12 or 24 by difficulty). Approved by the author. Superseded by the difficulty table: 12 / 18 / 24 months. |

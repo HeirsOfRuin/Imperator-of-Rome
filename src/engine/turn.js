@@ -2,8 +2,8 @@ import { PROVINCES, LEGIONS, FRONTIERS, BACKGROUND } from '../data/world.js';
 const BACKGROUND_STAGES = BACKGROUND.map((b) => b.stage);
 import { streamFor } from './rng.js';
 import { CONFIG, DIFFICULTY } from './config.js';
-import { buildBackground, newFaction, newLegion, rngs, townsFor } from './core.js';
-import { fight } from './combat.js';
+import { buildBackground, newFaction, newLegion, rngs, townsFor, takeLegion, makeArmy } from './core.js';
+import { fight, fieldBattle } from './combat.js';
 import { history, scheduleSpawns, spawnProcedural } from './history.js';
 import { economy, frontiers, loyalty, mutinies, raids } from './world.js';
 import { factionTurn } from './ai.js';
@@ -95,5 +95,27 @@ export function newGame(opts) {
   const s = init(seed, { ...opts, road: roadOf[top], background: Object.fromEntries(BACKGROUND_STAGES.map((st, i) => [st, bg.chosen[i]])), human: true });
   s.factions.player.name = opts.name || 'You';
   s.dispatches.push({ t: 0, loc: opts.start, text: 'March, AD 68. Word comes from Gaul: Julius Vindex, governor of Lugdunensis, has risen against Nero.' });
+  return s;
+}
+
+// Calibration jump: Second Bedriacum, October AD 69. You command the Danube
+// legions (Antonius Primus' role) against Vitellius' army before Cremona.
+export function bedriacum(opts = {}) {
+  const s = newGame({ seed: opts.seed || 69, difficulty: opts.difficulty || 'centurion', start: 'PAN', road: opts.road || 'military', name: opts.name });
+  s.turn = 19;
+  const P = s.factions.player;
+  P.ownsProvince = true; P.rebel = true; P.acclaimed = true; P.legit = 40; P.treasury = 900;
+  for (const pid of ['PAN', 'DAL', 'MOE', 'NIT']) s.prov[pid].owner = 'player';
+  const mine = ['XIII-Gem', 'VII-Claud', 'VIII-Aug', 'III-Gall', 'XI-Claud'];
+  for (const id of Object.values(s.legions).filter((l) => l.owner === 'player').map((l) => l.id)) if (!mine.includes(id)) takeLegion(s, s.legions[id], 'state', 50);
+  for (const id of mine) { const l = s.legions[id]; takeLegion(s, l, 'player', 68); l.loc = 'NIT'; l.men = 4400 + (id.length * 37) % 400; }
+  const A = makeArmy(s, 'player', 'NIT', mine); A.from = 'PAN'; P.leaderArmy = A.id;
+  const V = newFaction(s, { id: 'vitellius', kind: 'hist', road: 'wealth', stats: { opes: 4, virtus: 2, auct: 3, gratia: 3 }, legit: 35, treasury: 800, base: 'GIN', acclaimed: true, rebel: true });
+  const theirs = ['V-Alaud', 'XXI-Rap', 'XXII-Prim', 'I-Ital', 'XVI-Gall'];
+  for (const id of theirs) { const l = s.legions[id]; takeLegion(s, l, 'vitellius', 64); l.loc = 'NIT'; l.men = 4200 + (id.length * 53) % 500; }
+  const VA = makeArmy(s, 'vitellius', 'NIT', theirs); V.leaderArmy = VA.id;
+  s.prov.GIN.owner = 'vitellius'; s.prov.ETR.owner = 'vitellius'; s.prov.ROM.owner = 'vitellius'; s.emperor = 'vitellius';
+  s.dispatches.push({ t: 19, loc: 'NIT', text: 'October AD 69. Before Cremona, on the Via Postumia, the Vitellian legions turn to fight. Their commander is impetuous. Night will fall before it is done.' });
+  fieldBattle(s, P, A, VA, true);
   return s;
 }

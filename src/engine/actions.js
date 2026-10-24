@@ -4,7 +4,9 @@
 import { CONFIG } from './config.js';
 import { PROV, route, distance } from './graph.js';
 import { money, bodiesAt, flipProvince, legionPower, ownedLegions, ownedProvinces, setDest, hostile, log } from './core.js';
-import { chooseOption } from './combat.js';
+import { chooseOption, concludeBattle, generalOf } from './combat.js';
+import { ORDERS, orderBlocked, resolveRound, aiOrders, autoBattle, decideDusk } from './battle.js';
+import { streamFor } from './rng.js';
 import { leaderArmyOf, acclaim } from './ai.js';
 import { propose, answerOffer, breakTreaty, giveGift, subvert, askClient, senateDecree } from './diplomacy.js';
 import { step } from './turn.js';
@@ -136,6 +138,7 @@ export function act(s, a) {
       if (!b) return { error: 'They are no longer there' };
       const res = chooseOption(s, F, A, b, a.option, { destination: pend.destination });
       if (res && res.error) return res;
+      if (res === 'battle') return { ok: true, result: 'battle' };
       settle(s, pend);
       return { ok: true, result: res };
     }
@@ -169,6 +172,8 @@ export function act(s, a) {
       if (a.spend === 'informers') F.informers = s.turn; // halves this month's whispers
       return { ok: true };
     }
+    case 'battleOrder': case 'battleReserve': case 'battleCav': case 'battleLegate': case 'battleRound': case 'battleAuto': case 'battleDusk':
+      return battleAct(s, a);
     case 'endMonth': return endMonth(s);
     default: return { error: 'Unknown action ' + a.type };
   }
@@ -193,7 +198,71 @@ function withdraw(s, pend, A) {
   s.pending = s.pending.filter((p) => p !== pend);
 }
 
+// ---------------------------------------------------------------- the field
+function battleAct(s, a) {
+  const b = s.battle;
+  if (!b) return { error: 'No battle' };
+  const me = b.sides[b.player], foe = b.player === 'att' ? 'def' : 'att';
+  if (b.over && a.type !== 'battleRound') return { error: 'The battle is over' };
+  switch (a.type) {
+    case 'battleOrder': {
+      if (!ORDERS.includes(a.order)) return { error: 'Unknown order' };
+      const why = orderBlocked(me, a.sector, a.order);
+      if (why) return { error: why };
+      me.sectors[a.sector].order = a.order; return { ok: true };
+    }
+    case 'battleReserve':
+      if (me.reserveUsed) return { error: 'The reserve is already committed' };
+      if (a.sector !== null && me.sectors[a.sector].routed) return { error: 'That sector has broken' };
+      me.reserveOrder = a.sector; return { ok: true };
+    case 'battleCav': {
+      const c = me.cav.find((x) => x.pos === a.pos);
+      if (!c) return { error: 'No horse there' };
+      if (a.order === 'pursue' && !b.sides[foe].sectors[a.pos].routed) return { error: 'Nobody is running yet' };
+      if (a.order === 'charge' && c.end < 30) return { error: 'The horses are blown' };
+      c.order = a.order; return { ok: true };
+    }
+    case 'battleLegate': {
+      if (a.action === 'rally' && (me.rallyUsed || !me.sectors[a.target]?.routed)) return { error: me.rallyUsed ? 'You have already rallied once' : 'That sector stands' };
+      if (a.action === 'ruse' && me.ruseUsed) return { error: 'They will not fall for it twice' };
+      if (a.action === 'appeal' && me.sectors[a.target]?.dist !== 0) return { error: 'Too far to be heard: the lines must be close' };
+      me.legate = { action: a.action, target: a.target ?? 1 }; return { ok: true };
+    }
+    case 'battleDusk':
+      if (!b.dusk) return { error: 'It is not dusk' };
+      decideDusk(b, !!a.fightOn);
+      if (b.over) return finishBattle(s);
+      return { ok: true };
+    case 'battleRound': {
+      if (b.over) return finishBattle(s);
+      if (b.dusk) return { error: 'Night is falling: fight on or break off' };
+      const r = streamFor(b.seed, b.turn * 100 + b.round, 'policy' + b.id);
+      aiOrders(b, foe, r, b.sides[foe].general);
+      b.log = [];
+      resolveRound(b);
+      me.legate = { action: 'stay', target: 1 };
+      for (const c of me.cav) if (c.order === 'pursue') c.order = 'screen';
+      return { ok: true, over: b.over };
+    }
+    case 'battleAuto': {
+      autoBattle(b, { [b.player]: 'legates', [foe]: b.sides[foe].general });
+      return finishBattle(s);
+    }
+  }
+  return { error: 'Unknown' };
+}
+
+function finishBattle(s) {
+  const b = s.battle;
+  const playerWon = b.winner === b.player;
+  const res = concludeBattle(s, b);
+  s.lastBattle = { loc: b.loc, winner: b.winner, player: b.player, rounds: b.round };
+  for (const pend of [...s.pending]) settle(s, pend);
+  return { ok: true, result: b.winner === 'draw' ? 'draw' : playerWon ? 'won' : 'lost', campaign: res };
+}
+
 export function endMonth(s) {
+  if (s.battle) { const b = s.battle; const foe = b.player === 'att' ? 'def' : 'att'; autoBattle(b, { [b.player]: 'legates', [foe]: b.sides[foe].general }); finishBattle(s); }
   // encounters left undecided: the army falls back
   for (const pend of [...s.pending]) { const A = s.armies[pend.army]; if (A) withdraw(s, pend, A); else s.pending = s.pending.filter((p) => p !== pend); }
   for (const o of s.offers) if (o.turn < s.turn) o.lapsed = true;

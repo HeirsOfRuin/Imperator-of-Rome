@@ -51,6 +51,7 @@ export function engage(s, A, pid, destination) {
     // the state does not attack peaceful governors' provinces on its own
     if (F.kind === 'state' && b.kind === 'aux') break;
     const res = resolveEncounter(s, F, A, b, { destination });
+    if (res === 'battle') return 'halt';
     if (res === 'lost' || res === 'blocked') return res;
   }
   if (!s.armies[A.id] || !A.legions.length) return 'lost';

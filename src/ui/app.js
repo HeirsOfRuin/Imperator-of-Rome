@@ -1,5 +1,6 @@
 // The UI: renders view(state) and sends actions. It computes nothing itself.
-import { newGame } from '../engine/turn.js';
+import { newGame, bedriacum } from '../engine/turn.js';
+import { FieldView } from './field.js';
 import { act } from '../engine/actions.js';
 import { view } from '../engine/view.js';
 import { toSave, fromSave, SAVE_KEY } from '../engine/save.js';
@@ -15,6 +16,8 @@ let screen = 'title';          // title | newgame | game
 let tab = 'map', sel = null, modalOff = -1, toastT = null;
 const ng = { difficulty: 'centurion', start: 'GSU', road: 'politics', custom: false, bg: {}, name: '' };
 const map = new MapView((pid) => { sel = pid; render(); });
+let bChip = 'sector:1', bSel = null, bRoundSeen = -1;
+const field = new FieldView((id) => { bSel = id; render(); });
 
 const esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const A = (o) => `data-a='${JSON.stringify(o).replace(/'/g, '&#39;')}'`;
@@ -62,6 +65,7 @@ function doAct(a) {
   else if (a.type === 'client') toast(r.ok ? 'He sends men.' : `He refuses: ${(r.reasons || []).join('; ')}.`, r.ok ? 'good' : 'bad');
   else if (a.type === 'encounter' || a.type === 'approach') toast(resultText(r.result), r.result === 'cleared' ? 'good' : r.result === 'lost' || r.result === 'refused' ? 'bad' : '');
   else if (a.type === 'endMonth') { modalOff = -1; toast(V ? view(S).month : '', ''); }
+  else if (a.type === 'battleRound' && r && r.result) toast(r.result === 'won' ? 'Victory.' : r.result === 'lost' ? 'Defeat.' : 'Neither army broke.', r.result === 'won' ? 'good' : 'bad');
   refresh();
   return r;
 }
@@ -95,6 +99,7 @@ function render() {
   if (screen === 'title') return renderTitle();
   if (screen === 'newgame') return renderNewGame();
   if (V.outcome || !V.player.alive) return renderEnd();
+  if (V.battle) return renderBattle();
   const body = { map: mapScreen, realm: realmScreen, army: armyScreen, diplomacy: diplomacyScreen, rome: romeScreen, dispatches: dispatchScreen, legate: legateScreen }[tab] || mapScreen;
   $app.innerHTML = hud() + body() + nav() + `<button class="endmonth" data-act="end-turn">End month${V.pending.length ? '<small>undecided: your army falls back</small>' : ''}</button>` + modal();
   if (tab === 'map') {
@@ -111,6 +116,7 @@ function renderTitle() {
     <p class="note">Nero is failing. Four men will try for the throne. You will be the fifth, and the last.</p>
     ${saved && !saved.outcome ? `<button class="btn primary" data-act="continue">Continue · ${esc(view(saved).month)}</button>` : ''}
     <button class="btn ${saved && !saved.outcome ? '' : 'primary'}" data-act="new">New campaign</button>
+    <button class="btn" data-act="bedriacum">Fight Second Bedriacum (AD 69)</button>
     <details style="margin-top:14px;text-align:left"><summary class="note">Load a save code</summary><textarea class="code" id="imp" placeholder="IMPR1.…"></textarea><button class="btn block" data-act="import">Load</button></details>
     ${STORAGE_OK ? '' : '<p class="note" style="color:var(--crimson)">This browser will not keep saves. Use save codes (Legate tab).</p>'}
   </div>`;
@@ -377,6 +383,8 @@ document.addEventListener('click', async (e) => {
     screen = 'game'; tab = V?.act1 ? 'army' : 'map'; sel = null; modalOff = -1; refresh(); tab = 'map'; render(); map.z = 0; map.resize(); map.focus(ng.start, 5);
   } else if (a === 'continue') { S = loadSaved(); if (S) { screen = 'game'; tab = 'map'; refresh(); map.z = 0; map.resize(); map.focus(S.factions.player.leaderArmy && S.armies[S.factions.player.leaderArmy] ? S.armies[S.factions.player.leaderArmy].loc : S.factions.player.base, 5); } }
   else if (a === 'end-turn') doAct({ type: 'endMonth' });
+  else if (a === 'bedriacum') { S = bedriacum({ seed: (Date.now() % 100000) + 1 }); screen = 'game'; tab = 'map'; bChip = 'sector:1'; bSel = null; refresh(); }
+  else if (a === 'bchip') { bChip = t.dataset.chip; render(); }
   else if (a === 'acclaim') doAct({ type: 'acclaim' });
   else if (a === 'decree') doAct({ type: 'decree' });
   else if (a === 'close') { modalOff = V.turn; render(); }
@@ -396,3 +404,65 @@ registerSW(() => {
   bar.onclick = () => location.reload(); document.body.appendChild(bar);
 });
 renderTitle();
+
+
+// ---------- the field
+const STATE_WORD = { fresh: 'fresh', engaged: 'fighting', tired: 'resting', wavering: 'wavering', routed: 'routed', reserve: 'in reserve' };
+function renderBattle() {
+  const b = V.battle;
+  const animate = b.round !== bRoundSeen;
+  bRoundSeen = b.round;
+  const tod = b.night ? 'night' : b.round >= b.rounds - 1 ? 'dusk' : b.round <= 1 ? 'morning' : b.round <= 3 ? 'midday' : 'afternoon';
+  const [kind, arg] = bChip.split(':');
+  const chips = [
+    ...b.sectors.map((sc) => [`sector:${sc.col}`, sc.label, sc.routed ? 'broken' : sc.order]),
+    ['reserve', 'Reserve', b.reserve.used ? 'committed' : b.reserve.order == null ? 'held back' : 'to ' + ['left', 'centre', 'right'][b.reserve.order]],
+    ...b.cavalry.map((c) => [`cav:${c.pos}`, c.col === 'left' ? 'Horse left' : 'Horse right', c.order]),
+    ['legate', 'You', { stay: 'with the eagles', ride: 'riding', rally: 'rallying', appeal: 'appealing', ruse: 'ruse' }[b.legate.action]],
+  ];
+  let panel = '';
+  if (kind === 'sector') {
+    const sc = b.sectors[+arg];
+    panel = `<div class="bstat"><div><b>Your line</b> ${n(sc.mine.men)} men · ${sc.linesLeft + 1} line${sc.linesLeft ? 's' : ''} deep · ${sc.reliefs} relief${sc.reliefs === 1 ? '' : 's'} left${sc.mine.pila >= 0.5 ? ` · pila ${sc.mine.pila}` : ' · pila spent'}
+      <div class="mrow2">Morale<div class="meter"><i style="width:${sc.mine.morale}%"></i></div></div><div class="mrow2">Endurance<div class="meter purple"><i style="width:${sc.mine.end}%"></i></div></div></div>
+      <div><b>Their line</b> about ${n(sc.theirs.men)} men · ${sc.theirs.state} · ${sc.theirs.shaken}${sc.theirs.lastOrder ? ` · last: ${sc.theirs.lastOrder}` : ''}</div>
+      <div class="note">${['Locked shield to shield', 'Within a javelin’s throw', 'Far apart'][sc.dist]}</div></div>
+      <div class="orders">${sc.orders.map((o) => `<button class="${sc.order === o.id ? 'on' : ''}" ${A({ type: 'battleOrder', sector: b.fromScreen[sc.col], order: o.id })} ${o.why ? 'disabled' : ''}>${o.label}<small>${esc(o.why || o.does)}</small></button>`).join('')}</div>`;
+  } else if (kind === 'reserve') {
+    panel = `<p class="note">${b.reserve.used ? 'Your reserve is committed.' : `${b.reserve.count} fresh cohorts wait behind the centre. Once committed, they march up behind a sector as its next line.`}</p>
+      <div class="orders">${[null, 0, 1, 2].map((col) => `<button class="${b.reserve.order === col ? 'on' : ''}" ${A({ type: 'battleReserve', sector: col == null ? null : b.fromScreen[col] })} ${b.reserve.used ? 'disabled' : ''}>${col == null ? 'Hold back' : 'Commit ' + ['left', 'centre', 'right'][col]}<small>${col == null ? 'Keep them' : 'Once only'}</small></button>`).join('')}</div>`;
+  } else if (kind === 'cav') {
+    const c = b.cavalry.find((x) => String(x.pos) === arg);
+    const theirs = b.enemyCavalry.find((x) => x.col === c.col);
+    panel = `<p class="note">${n(c.men)} horse · ${c.end < 30 ? 'blown' : c.end < 60 ? 'tiring' : 'fresh'}${c.beaten ? ' · beaten back' : ''}. Facing about ${n(theirs.men)} of theirs${theirs.beaten ? ', beaten back' : ''}.</p>
+      <div class="orders">${[['screen', 'Screen the flank', 'Stops their horse'], ['charge', 'Charge the flank', 'Through their horse, into their line'], ['pursue', 'Pursue', c.canPursue ? 'Cut down the fugitives' : 'Nobody is running yet']].map(([o, l, d]) => `<button class="${c.order === o ? 'on' : ''}" ${A({ type: 'battleCav', pos: c.pos, order: o })} ${o === 'pursue' && !c.canPursue ? 'disabled' : ''}>${l}<small>${d}</small></button>`).join('')}</div>`;
+  } else {
+    const L = b.legate;
+    const routedCols = b.sectors.filter((x) => x.routed).map((x) => x.col);
+    const opts = [['stay', null, 'Stay with the eagles', 'Safe'], ...[0, 1, 2].map((c) => ['ride', c, `Ride to the ${['left', 'centre', 'right'][c]}`, 'Morale there; some risk']),
+      ...routedCols.map((c) => ['rally', c, `Rally the ${['left', 'centre', 'right'][c]}`, L.rallyUsed ? 'Already used' : 'Once per battle']),
+      ...[0, 1, 2].filter((c) => b.sectors[c].dist === 0).map((c) => ['appeal', c, `Call across the lines (${['left', 'centre', 'right'][c]})`, `Charisma ${L.gratia}; better at night`]),
+      ...(L.ruseUsed ? [] : [0, 1, 2].map((c) => ['ruse', c, `Signal a ruse (${['left', 'centre', 'right'][c]})`, 'Next round that line feigns retreat']))];
+    panel = `<div class="orders two">${opts.map(([a, c, l, d]) => `<button class="${L.action === a && (c == null || L.target === c) ? 'on' : ''}" ${A({ type: 'battleLegate', action: a, target: c == null ? 1 : b.fromScreen[c] })}>${l}<small>${d}</small></button>`).join('')}</div>`;
+  }
+  const coh = bSel && b.cohorts.find((c) => c.id === bSel);
+  const cohCard = coh ? `<div class="card gold ccard"><h3>${coh.mine ? '' : 'Enemy: '}${esc(coh.name)} <small>cohort ${['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'][coh.n - 1] || coh.n}${coh.depth >= 0 && coh.depth < 9 ? ' · line ' + (coh.depth + 1) : ''}</small></h3>
+    ${coh.mine ? `<div class="mrow2">Men<div class="meter red"><i style="width:${(100 * coh.men) / coh.max}%"></i></div><b>${coh.men}/${coh.max}</b></div><div class="mrow2">Morale<div class="meter"><i style="width:${coh.morale}%"></i></div><b>${coh.morale}</b></div><div class="mrow2">Endurance<div class="meter purple"><i style="width:${coh.end}%"></i></div><b>${coh.end}</b></div><div class="note">Pila ${coh.pila} · ${STATE_WORD[coh.state] || coh.state}</div>`
+      : `<div class="note">About ${n(Math.round(coh.men / 50) * 50)} men · ${coh.end >= 70 ? 'fresh' : coh.end >= 35 ? 'tiring' : 'spent'} · ${coh.morale >= 60 ? 'steady' : coh.morale >= 35 ? 'shaken' : 'wavering'}</div>`}</div>` : '';
+  const result = b.over ? `<div class="card gold"><h3>${{ won: 'Victory', lost: 'Defeat', draw: 'Neither army broke' }[b.result]}</h3><p class="note">${b.result === 'won' ? 'Their army breaks and runs. Some of their legions will come over to you.' : b.result === 'lost' ? 'Your army breaks. What is left falls back.' : 'Both armies draw off in the dark.'}</p><button class="btn primary block" data-a='{"type":"battleRound"}'>Return to the campaign</button></div>` : '';
+  const controls = b.over ? '' : b.dusk
+    ? `<div class="btns"><button class="btn primary" data-a='{"type":"battleDusk","fightOn":true}'>Fight on into the night</button><button class="btn" data-a='{"type":"battleDusk","fightOn":false}'>Break off</button></div><p class="note">At night everything is less certain, and men can hear each other across the lines.</p>`
+    : `<button class="btn primary block trumpets" data-a='{"type":"battleRound"}'>Sound the trumpets</button><button class="btn block" data-a='{"type":"battleAuto"}'>Leave it to the legates</button>`;
+  $app.innerHTML = hud() + `<div class="battle"><div class="bar"><div><h3>Battle near ${esc(b.locName)}</h3><div class="sub">${b.attacking ? 'You attack' : 'You are attacked'} · round ${Math.min(b.round + 1, b.maxRounds)} of ${b.rounds}${b.night ? ' (night)' : ''} · ${tod}</div></div></div>
+    <div id="fieldwrap"></div>
+    <div class="bbody">
+      <p class="note"><b>${esc(b.enemy)}</b>. ${esc(b.enemyGeneralText)}</p>
+      ${result}
+      ${b.over ? '' : `<div class="chips">${chips.map(([id, l, o]) => `<button class="bchip ${bChip === id ? 'on' : ''}" data-act="bchip" data-chip="${id}">${l} <em>${esc(o)}</em></button>`).join('')}</div>${panel}`}
+      ${cohCard}
+      ${b.log.length ? `<div class="blog">${b.log.map((l) => `<div>${esc(l)}</div>`).join('')}</div>` : ''}
+      ${controls}
+    </div></div>`;
+  field.attach(document.getElementById('fieldwrap'));
+  field.update(b, bSel, animate);
+}

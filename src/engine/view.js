@@ -6,6 +6,8 @@ import { CONFIG } from './config.js';
 import { PROV, ITALY, distance } from './graph.js';
 import { legionName, bodiesAt, debtTotal, ownedLegions, ownedProvinces, strengthOf, armyPower } from './core.js';
 import { optionInfo } from './combat.js';
+import { CAPITALS } from '../data/seeds.js';
+import { ORDERS, orderBlocked, sectorState, frontOf, ROUNDS_DAY, ROUNDS_MAX } from './battle.js';
 import { act1Targets, bodyKey, lettersAllowed, TAX_LEVELS } from './actions.js';
 import { standing, treatyBetween, evaluate, seat, clientStatus, canSubvert, subvertCost, decreeCost } from './diplomacy.js';
 
@@ -64,6 +66,64 @@ function visibleDispatches(s) {
     if (d.t + lag <= s.turn) out.push({ ...d, when: monthName(d.t), late: lag > 0 });
   }
   return out.slice(-60).reverse();
+}
+
+const GENERAL_TEXT = {
+  impetuous: 'Impetuous: charges early and often, relieves his lines late.',
+  methodical: 'Methodical: throws his pila well, relieves on time, charges a tired line.',
+  cunning: 'Cunning: feints, ruses, and horse on the flanks.',
+  cautious: 'Cautious: holds, falls back, waits for you to come to him.',
+  legates: 'Your legates: steady and unimaginative.',
+};
+const ORDER_TEXT = {
+  hold: ['Hold', 'Brace and dress ranks'], advance: ['Advance', 'Close in; in contact, push'], pila: ['Pila', 'Throw a volley'],
+  charge: ['Charge', 'Shock attack; very tiring'], relieve: ['Relieve', 'Fresh line to the front'], fallback: ['Fall back', 'Give ground'],
+};
+const band3 = (x, a, b) => (x >= b ? 'fresh' : x >= a ? 'tiring' : 'spent');
+
+// The field, seen from the player's side: you are always at the bottom, and
+// sector 0 is your left.
+function battleView(s) {
+  const b = s.battle;
+  const youKey = b.player, foeKey = youKey === 'att' ? 'def' : 'att';
+  const you = b.sides[youKey], foe = b.sides[foeKey];
+  const toScreen = (k) => (youKey === 'att' ? k : 2 - k); // engine sector -> your column
+  const fromScreen = (col) => (youKey === 'att' ? col : 2 - col);
+  const cohorts = [];
+  for (const [key, side, mine] of [[youKey, you, true], [foeKey, foe, false]]) {
+    for (let k = 0; k < 3; k++) {
+      const S = side.sectors[k];
+      S.lines.forEach((line, i) => {
+        const depth = i - S.front;
+        if (depth < 0) return;
+        line.forEach((id, j) => { const c = side.cohorts[id]; if (c.men <= 0 || c.state === 'gone') return; cohorts.push({ id, mine, col: toScreen(k), depth, slot: j, slots: line.length, legion: c.legion, name: legionName({ id: c.legion }), n: c.n, men: c.men, max: c.max, morale: Math.round(c.morale), end: Math.round(c.end), pila: c.pila, state: c.state, routed: S.routed }); });
+      });
+      for (const id of S.broken) { const c = side.cohorts[id]; if (c.men > 0) cohorts.push({ id, mine, col: toScreen(k), depth: -1, slot: 0, slots: 1, legion: c.legion, name: legionName({ id: c.legion }), n: c.n, men: c.men, max: c.max, morale: Math.round(c.morale), end: Math.round(c.end), pila: c.pila, state: 'routed', routed: true }); }
+    }
+    side.reserve.forEach((id, j) => { const c = side.cohorts[id]; cohorts.push({ id, mine, col: 1, depth: 9, slot: j, slots: side.reserve.length, legion: c.legion, name: legionName({ id: c.legion }), n: c.n, men: c.men, max: c.max, morale: Math.round(c.morale), end: Math.round(c.end), pila: c.pila, state: 'reserve', routed: false }); });
+  }
+  const sectors = [0, 1, 2].map((col) => {
+    const k = fromScreen(col);
+    const S = you.sectors[k], T = foe.sectors[k];
+    const m = sectorState(you, k), t = sectorState(foe, k);
+    return {
+      col, k, label: ['Left', 'Centre', 'Right'][col], dist: S.dist, order: S.order, routed: S.routed, reliefs: S.reliefs, linesLeft: m.linesLeft,
+      mine: { men: Math.round(m.men), morale: Math.round(m.morale), end: Math.round(m.end), pila: Math.round(m.pila * 10) / 10 },
+      theirs: { men: Math.round(t.men / 50) * 50, state: T.routed ? 'broken' : band3(t.end, 35, 70), shaken: t.morale < 35 ? 'wavering' : t.morale < 60 ? 'shaken' : 'steady', routed: T.routed, lastOrder: T.history.slice(-1)[0] || null },
+      orders: ORDERS.map((o) => ({ id: o, label: ORDER_TEXT[o][0], does: ORDER_TEXT[o][1], why: orderBlocked(you, k, o) })),
+    };
+  });
+  return {
+    id: b.id, loc: b.loc, locName: CAPITALS[b.loc] || PROV[b.loc]?.name, round: b.round, rounds: ROUNDS_DAY, maxRounds: ROUNDS_MAX, night: b.round >= ROUNDS_DAY, dusk: b.dusk, over: b.over,
+    result: b.over ? (b.winner === 'draw' ? 'draw' : b.winner === youKey ? 'won' : 'lost') : null, attacking: youKey === 'att',
+    enemy: s.factions[foe.fid]?.name, enemyColor: factionColor(s, foe.fid), enemyGeneral: foe.general, enemyGeneralText: GENERAL_TEXT[foe.general],
+    sectors, cohorts, log: b.log.map((l) => l.text), events: (b.lastEvents || []).map((e) => ({ ...e, col: e.sector !== undefined ? toScreen(e.sector) : null, mine: e.side === youKey })),
+    reserve: { count: you.reserve.length, used: you.reserveUsed, order: you.reserveOrder == null ? null : toScreen(you.reserveOrder) },
+    cavalry: you.cav.map((c) => ({ pos: c.pos, col: toScreen(c.pos) === 0 ? 'left' : 'right', men: c.men, end: Math.round(c.end), order: c.order, beaten: c.beaten > 0, canPursue: foe.sectors[c.pos].routed })),
+    enemyCavalry: foe.cav.map((c) => ({ col: toScreen(c.pos) === 0 ? 'left' : 'right', men: Math.round(c.men / 50) * 50, beaten: c.beaten > 0 })),
+    legate: { action: you.legate.action, target: you.legate.target == null ? 1 : toScreen(you.legate.target), ruseUsed: you.ruseUsed, rallyUsed: you.rallyUsed, gratia: s.factions.player.stats.gratia },
+    fromScreen: [0, 1, 2].map(fromScreen),
+  };
 }
 
 export function view(s) {
@@ -145,7 +205,7 @@ export function view(s) {
     },
     army: A ? { id: A.id, loc: A.loc, dest: A.dest, path: A.path, power: k(armyPower(s, A) / 1000), legions: A.legions.map((id) => legionView(s, s.legions[id])), halted: s.pending.some((p) => p.army === A.id) } : null,
     legions: myLegs.map((l) => legionView(s, l)),
-    provinces, factions, pending, act1, rome,
+    provinces, factions, pending, act1, rome, battle: s.battle ? battleView(s) : null, lastBattle: s.lastBattle || null,
     armies: Object.values(s.armies).filter((x) => x.legions.length && s.factions[x.owner]?.alive && s.factions[x.owner].kind !== 'state').map((x) => ({ id: x.id, owner: x.owner, ownerName: s.factions[x.owner].name, color: factionColor(s, x.owner), loc: x.loc, dest: x.dest, path: x.path, legions: x.legions.length, mine: x.owner === 'player' })),
     offers: s.offers.filter((o) => s.factions[o.from]?.alive).map((o) => ({ ...o, fromName: s.factions[o.from]?.name, targetName: o.target ? s.factions[o.target]?.name : null })),
     clients: CLIENTS.map((c) => ({ id: c.id, name: cap(c.name), near: c.near, men: c.men, cost: c.cost, why: clientStatus(s, P, c), standing: Math.round(standing(s, 'player', 'client:' + c.id)), parthian: !!c.legit })),

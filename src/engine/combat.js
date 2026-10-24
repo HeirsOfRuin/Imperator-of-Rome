@@ -2,6 +2,8 @@ import { CONFIG, FIGHT_RATIO, NEG_THRESHOLD, ROAD_PREFS } from './config.js';
 import { ADJ, PROV } from './graph.js';
 import { legionName, who, money, armyPower, bodyGroup, bodyLoyalty, bodyMen, bodyPower, buyCost, cull, debtTotal, flipProvince, gainBody, hostile, killFaction, log, negotiateChance, ownedLegions, retreatLegion, setAside, takeLegion } from './core.js';
 import { hold } from './rome.js';
+import { setupBattle, autoBattle, survivors, defectors } from './battle.js';
+import { CAPITALS } from '../data/seeds.js';
 
 // One resolver for encounters. The four options are separate functions; the
 // bot's resolveEncounter and the player's chooseOption both call them, so hand
@@ -191,6 +193,10 @@ export function fight(s, F, A, b, ctx) {
   const large = attMen + defMen >= CONFIG.largeBattleMen && b.kind === 'army';
   const isPlayer = F.kind === 'player' || D.kind === 'player';
   if (large) { s.stats.largeFights++; if (isPlayer) s.stats.pLarge++; } else { s.stats.smallFights++; if (isPlayer) s.stats.pSmall++; }
+  if (large && A) {
+    if (isPlayer && s.opts.human && s.battle) return 'blocked';
+    return fieldBattle(s, F, A, b.army, isPlayer);
+  }
   const pa = (A ? armyPower(s, A) : ctx.power) * r.float(0.85, 1.15);
   const pd = bodyPower(s, b) * r.float(0.85, 1.15);
   const attWins = pa > pd;
@@ -277,4 +283,101 @@ export function leaderDefeated(s, F, A, large) {
     if (F.anchored && !s.actIVOpen) { s.stats.anchorSaves++; return; }
     killFaction(s, F, 'death');
   }
+}
+
+// ---------------------------------------------------------------- large battles on the field
+
+const GENERAL_OF = { galba: 'cautious', otho: 'impetuous', vitellius: 'impetuous', vespasian: 'cunning', vindex: 'impetuous', macer: 'cautious', nymphidius: 'cautious', capito: 'methodical', albinus: 'cautious' };
+export function generalOf(F) {
+  if (F.kind === 'player') return 'legates';
+  return GENERAL_OF[F.id] || { military: 'methodical', wealth: 'cautious', politics: 'cautious', charisma: 'impetuous' }[F.road] || 'methodical';
+}
+function sideSpec(s, F, A, edge) {
+  return {
+    fid: F.id, armyId: A.id, general: generalOf(F), virtus: F.stats.virtus, gratia: F.stats.gratia, comrades: F.comrades || null, edge,
+    cavalryMult: F.road === 'military' ? 1.3 : 1,
+    legions: A.legions.map((id) => s.legions[id]).filter(Boolean).map((l) => ({ id: l.id, men: l.men, exp: l.exp, loyalty: l.loyalty, group: l.group, client: l.client || null })),
+  };
+}
+
+export function fieldBattle(s, F, A, DA, isPlayer) {
+  const D = s.factions[DA.owner];
+  const b = setupBattle({
+    id: s.nextId++, loc: A.loc, seed: s.seed, turn: s.turn, site: A.loc,
+    att: sideSpec(s, F, A, F.kind === 'player' ? s.diff.playerEdge : 1),
+    def: sideSpec(s, D, DA, D.kind === 'player' ? s.diff.playerEdge : 1),
+    player: F.kind === 'player' ? 'att' : D.kind === 'player' ? 'def' : null,
+  });
+  b.attFrom = A.from;
+  if (isPlayer && s.opts.human) {
+    s.battle = b;
+    log(s, `battle starts at ${A.loc}`, A.loc, null);
+    return 'battle';
+  }
+  autoBattle(b, { att: F.kind === 'player' ? 'methodical' : undefined, def: D.kind === 'player' ? 'methodical' : undefined });
+  return concludeBattle(s, b);
+}
+
+// Write a finished field battle back into the campaign. Returns the attacker's result.
+export function concludeBattle(s, b) {
+  const F = s.factions[b.sides.att.fid], D = s.factions[b.sides.def.fid];
+  const A = s.armies[b.sides.att.armyId], DA = s.armies[b.sides.def.armyId];
+  const r = s.R.combat;
+  // men lost, legion by legion
+  for (const key of ['att', 'def']) {
+    const surv = survivors(b, key);
+    for (const [lid, men] of Object.entries(surv)) { const l = s.legions[lid]; if (l) l.men = Math.round(men); }
+  }
+  // legions that changed sides or left the field
+  for (const [key, toF, toA] of [['att', F, A], ['def', D, DA]]) {
+    for (const lid of defectors(b, key)) {
+      const l = s.legions[lid];
+      if (!l || !toA) continue;
+      const men = Object.values(b.sides[key].cohorts).filter((c) => c.legion === lid && c.id.endsWith('*')).reduce((a, c) => a + c.men, 0);
+      takeLegion(s, l, toF.id, 45); l.men = Math.max(l.men, Math.round(men)); l.army = toA.id; l.loc = toA.loc; toA.legions.push(l.id);
+    }
+  }
+  for (const lf of b.leftField || []) { const l = s.legions[lf.legion]; if (l) { takeLegion(s, l, 'state', 40); l.men = Math.max(1000, lf.men); } }
+  cull(s);
+  const winnerKey = b.winner;
+  const large = true;
+  const name = 'near ' + (CAPITALS[b.loc] || PROV[b.loc]?.name || b.loc);
+  if (winnerKey === 'draw') {
+    log(s, `BATTLE draw at ${b.loc}`, b.loc, `Battle ${name}: night falls with neither army broken. ${who(s, F.id)} ${F.kind === 'player' ? 'draw' : 'draws'} off.`);
+    if (A && s.armies[A.id] && b.attFrom) { A.loc = b.attFrom; A.path = []; for (const id of A.legions) if (s.legions[id]) s.legions[id].loc = A.loc; }
+    s.battle = null;
+    return 'blocked';
+  }
+  const attWins = winnerKey === 'att';
+  const winner = attWins ? F : D, loser = attWins ? D : F;
+  log(s, `BATTLE ${F.id} vs ${D.id} at ${b.loc} -> ${winner.id}`, b.loc, `Battle ${name}: ${who(s, winner.id)} ${winner.kind === 'player' ? 'win' : 'wins'} against ${who(s, loser.id).replace('You', 'you')}.`);
+  if (winner.kind === 'player') s.stats.fightsWon++;
+  if (loser.kind === 'player') s.stats.fightsLost++;
+  winner.legit = Math.min(100, winner.legit + (winner.road === 'military' ? 7 : 4));
+  winner.recentWin = s.turn;
+  loser.legit = Math.max(0, loser.legit - 6);
+  const winArmy = attWins ? A : DA;
+  if (winArmy) for (const id of winArmy.legions) { const l = s.legions[id]; if (l) l.loyalty = Math.min(100, l.loyalty + 8); }
+  s.battle = null;
+  let res;
+  if (attWins) {
+    if (F.kind === 'player') s.stats.gainedBy.fight++;
+    if (DA && s.armies[DA.id] && s.factions[DA.owner]?.alive) defeatArmy(s, DA, F, A, large);
+    res = 'cleared';
+  } else {
+    if (A && s.armies[A.id]) {
+      for (const id of A.legions) if (s.legions[id]) s.legions[id].loyalty -= 8;
+      if (A.id === F.leaderArmy && F.alive) leaderDefeated(s, F, A, large);
+      if (s.armies[A.id] && b.attFrom) { A.loc = b.attFrom; A.path = []; for (const id of A.legions) if (s.legions[id]) s.legions[id].loc = A.loc; }
+    }
+    res = 'lost';
+  }
+  // a general struck down on the field (after the field is settled)
+  for (const [key, X] of [['att', F], ['def', D]]) {
+    if (!b.sides[key].dead || !X.alive) continue;
+    if (X.anchored && !s.actIVOpen) s.stats.anchorSaves++;
+    else killFaction(s, X, 'death');
+  }
+  void r;
+  return res;
 }

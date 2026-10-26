@@ -75,7 +75,8 @@ export function garrisonMult(P) { return has(P, 'castra') ? 1.5 : 1; }
 export function levyMonthsOff(P) { return (has(P, 'dilectus') ? 1 : 0) + (P.governor?.trait === 'able' ? 1 : 0); }
 export function levyCostMult(P) { return has(P, 'dilectus') ? 0.75 : 1; }
 // what a levy, a work or games cost this faction (works and the market together)
-export function levyCostFor(s, fid, P) { return CONFIG.levyCost * levyCostMult(P) * levyGoodMult(s, fid); }
+// veterans flock to a soldier's standard: the military road raises legions a quarter cheaper
+export function levyCostFor(s, fid, P) { return CONFIG.levyCost * levyCostMult(P) * levyGoodMult(s, fid) * (s.factions[fid]?.road === 'military' ? 0.75 : 1); }
 export function buildCost(s, fid, bid) { return Math.round(BUILDINGS[bid].cost * buildGoodMult(s, fid)); }
 export function gamesCost(s, fid) { return Math.round(GAMES_COST * gamesGoodMult(s, fid)); }
 export function levyExp(P) { return has(P, 'dilectus') ? 0.75 : 0.6; }

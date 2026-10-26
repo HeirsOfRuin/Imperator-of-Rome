@@ -237,7 +237,7 @@ export function fight(s, F, A, b, ctx) {
     else if (b.kind === 'legion' && s.legions[b.legion.id]) {
       const l = b.legion;
       const covert = l.owner === 'player' && !s.factions.player.rebel;
-      if (r.chance(0.5) && !covert) { takeLegion(s, l, F.id, 30); if (A) { l.army = A.id; l.loc = A.loc; A.legions.push(l.id); } }
+      if (r.chance(0.5 + (F.road === 'military' ? CONFIG.militaryAbsorb / 2 : 0)) && !covert) { takeLegion(s, l, F.id, 30); if (A) { l.army = A.id; l.loc = A.loc; A.legions.push(l.id); } }
       else retreatLegion(s, l);
     } else if (b.kind === 'aux') {
       b.prov.aux = 0;
@@ -271,7 +271,7 @@ export function defeatArmy(s, D, F, A, large) {
   for (const id of [...D.legions]) {
     const l = s.legions[id];
     if (!l) continue;
-    if (r.chance((large ? 0.25 : 0.2) + (F.road === 'military' ? 0.15 : 0))) { takeLegion(s, l, F.id, 30); if (A) { l.army = A.id; l.loc = A.loc; A.legions.push(l.id); } }
+    if (r.chance((large ? 0.25 : 0.2) + (F.road === 'military' ? CONFIG.militaryAbsorb : 0))) { takeLegion(s, l, F.id, 30); if (A) { l.army = A.id; l.loc = A.loc; A.legions.push(l.id); } }
   }
   armyDefeated(s, owner, D, large);
   if (s.armies[D.id]) {
@@ -290,7 +290,8 @@ export function armyDefeated(s, F, A, large) {
 export function leaderDefeated(s, F, A, large) {
   const r = s.R.combat;
   const canRetreat = ADJ[A.loc].some((e) => s.prov[e.to].owner === F.id) || s.prov[A.loc].owner === F.id;
-  const pDeath = (large ? 0.18 : 0.04) + (canRetreat ? 0 : 0.45);
+  // a soldier knows when to get out: military skill lowers the risk
+  const pDeath = ((large ? 0.18 : 0.04) + (canRetreat ? 0 : 0.45)) * Math.max(0.5, 1.2 - 0.1 * F.stats.virtus);
   if (r.chance(pDeath)) {
     if (F.anchored && !s.actIVOpen) { s.stats.anchorSaves++; return; }
     killFaction(s, F, 'death');
@@ -328,7 +329,9 @@ export function fieldBattle(s, F, A, DA, isPlayer) {
     log(s, `battle starts at ${A.loc}`, A.loc, null);
     return 'battle';
   }
-  autoBattle(b, { att: F.kind === 'player' ? 'methodical' : undefined, def: D.kind === 'player' ? 'methodical' : undefined });
+  const lever = (k) => !(s.opts.noBotLever || []).includes(k);
+  const retreat = lever('retreat') ? { ...(F.kind === 'player' ? { att: 0.6 } : {}), ...(D.kind === 'player' ? { def: 0.6 } : {}) } : {};
+  autoBattle(b, { att: F.kind === 'player' ? 'methodical' : undefined, def: D.kind === 'player' ? 'methodical' : undefined }, retreat);
   return concludeBattle(s, b);
 }
 
@@ -381,6 +384,9 @@ export function concludeBattle(s, b) {
   winner.legit = Math.min(100, winner.legit + (winner.road === 'military' ? 7 : 4));
   winner.recentWin = s.turn;
   loser.legit = Math.max(0, loser.legit - 6);
+  // the baggage train: part of the loser's war chest
+  const booty = Math.max(0, loser.treasury) * CONFIG.booty * (winner.road === 'military' ? 2 : 1);
+  if (booty >= 1 && loser.kind !== 'state') { money(s, loser, -booty, 'baggage lost'); money(s, winner, booty, 'booty'); }
   const winArmy = attWins ? A : DA;
   if (winArmy) for (const id of winArmy.legions) { const l = s.legions[id]; if (l) l.loyalty = Math.min(100, l.loyalty + 8); }
   s.battle = null;

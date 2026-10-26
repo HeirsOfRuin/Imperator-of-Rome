@@ -157,7 +157,7 @@ export function senateTurn(s) {
 export function aiSenate(s, F) {
   if (s.opts.noSenate) return;
   const f = favour(s, F.id);
-  if (F.courtTurn !== s.turn && f < 45 && F.treasury > 500 && (F.road === 'politics' || F.road === 'wealth')) courtSenate(s, F);
+  if (F.courtTurn !== s.turn && f < 45 && F.treasury > 500) courtSenate(s, F);
   for (const m of ['thanks', 'imperium', 'decree', 'exiles']) {
     if (m === 'exiles' && F.treasury < 400) continue;
     if (m === 'decree' && F.treasury < decreeCost(F) + 200) continue;

@@ -515,3 +515,60 @@ or demands provinces, so those levers are untested by it; they need the author.
 **Fixed on the way.** Act I could leave you with nothing to approach for
 months when every other legion stood aside below three-quarters of the men;
 legions standing aside no longer defend the governor.
+
+## 17. Review, levers and the roads (2026-10-26)
+
+**Code review of the depth systems** found eight bugs, all fixed and each
+checked by a targeted test: a public enemy was recognised the same month the
+decree lapsed; rivals could never restore the exiles; rivals with no hostile
+neighbour never proposed trade; the AI emperor outlawed by a looser private
+rule; trade outlived a broken truce for a month; client legions forgot their
+king (and the Parthian horse could be taken twice); negative gold in a
+proposal paid the proposer; the Rome tab showed the wrong price for games.
+Not changed: the goods lookups repeat work, but a full screen renders in
+1.5 ms, and caching them risked a reloaded save playing differently.
+
+**Levers the measurement bot now uses**: sounding the retreat (when losing
+worse than 0.6 from the third round), inciting a people against a stronger
+rival, a truce with gold, demanding a province from a weak partner. Measured
+on 560 fresh campaigns each at Centurion: the retreat cuts death in battle
+from 34% to 25% of campaigns; gold for a truce is worth about a point;
+demanding provinces is neutral; inciting indiscriminately costs about three
+points (mostly the wealth road's money). Rule change: you cannot incite a
+people against a frontier you hold part of (the bot had been burning its own
+provinces: 5.4 breaches a campaign against 3.3).
+
+**Measurement noise.** One extra random draw reshuffles a whole campaign, so
+two variants on the same seeds are effectively independent samples. A first
+lever ablation showed a nine-point "cost" for inciting that vanished on a
+fresh seed set. Rule from now on: a lever's value is claimed only when it
+holds on two seed sets.
+
+**Roads.** Centurion before: politics 27%, wealth 21%, charisma 10%,
+military 6%. Diagnosis: after taking Rome, every road mostly loses it to a
+rival retaking the city, which is a matter of army size, and charisma and
+military reached Rome late (first capture at months 24 and 31 against 17–22
+for winners) because they grew slowly. Changes, each matching the road's
+promise in the opening pages:
+- the bot courts the Senate on every road (it had only on politics and wealth);
+- booty: a pitched battle's winner takes 15% of the loser's treasury (30% on
+  the military road);
+- military: beaten legions join a military victor more often (+30%), and
+  levies cost a quarter less; a commander's military skill lowers his risk of
+  dying when beaten;
+- charisma: wavering rival legions (loyalty under 45, not under their
+  general's eye) next to a charismatic commander's army may come over on their
+  own (2.5% a month per point of charisma); appeals gain 2% per point;
+- every road's emperor keeps his legitimacy up to the same level (65); the
+  military road by a triumph (100k, legitimacy +2, legions in Italy +3).
+Tried and reverted: making the military bot more careful (1.15 → 1.3 odds;
+kept, no effect), letting it talk first (+3, noise), counting the general's
+skill in its readiness for Rome (reached Rome more often, held it no better).
+
+**Measured after** (25 per start and road): Legionary 35% (hold 12 → 14
+months), Centurion 15%, Legate 5.0%. Centurion by road: wealth 12, military
+11, politics 22, charisma 14 on the standard seeds; 21, 9, 20, 19 on a second
+set. Open: military still trails on two seed sets out of two; its problem is
+holding Rome with a smaller army, which wants a design answer (for example
+Vitellius' remedy: replacing the Praetorians with one's own legionaries)
+rather than more tuning.

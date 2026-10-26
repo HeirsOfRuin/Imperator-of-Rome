@@ -28,12 +28,16 @@ export const CONFIG = {
   homePayMult: 0.6,        // pay for a legion in its own province (requisitions in kind)
   legateSalary: 15,        // a month, until you hold a province
   partPayDelay: 3,
+  militaryAbsorb: 0.3,      // extra chance a beaten legion joins a military-road victor
+  charismaAppeal: 0.02,     // extra appeal chance per point of charisma, charisma road
+  booty: 0.15,             // share of the loser's treasury taken after a pitched battle (doubled for the military road)
+  charismaPull: 0.025,     // a month, per point of charisma, for a wavering rival legion near a charismatic commander
   rearguardLoss: 0.03,     // men lost falling back before an attacker
   retreatLoss: [0.1, 0.04], // sounding the retreat: lines in contact, lines apart         // months a part payment buys
 };
 
 export const DIFFICULTY = {
-  legionary: { truceReluctance: 0, rivalLevyEvery: 3, plotMult: 3.2, generalMult: 2.5, rivalStat: 3, rivalLoyalty: 14, rivalFunds: 1.8, praetorianDonative: 1000, procPerAct: 1, minorStandAside: 0.4, aiAggr: 0.8, leaderBias: 0, hold: 12, distMult: 0.5,
+  legionary: { truceReluctance: 0, rivalLevyEvery: 3, plotMult: 3.2, generalMult: 2.5, rivalStat: 3, rivalLoyalty: 14, rivalFunds: 1.8, praetorianDonative: 1000, procPerAct: 1, minorStandAside: 0.4, aiAggr: 0.8, leaderBias: 0, hold: 14, distMult: 0.5,
     dueOnVictory: 4, frontierMult: 0.7, startFunds: 1.2, playerEdge: 1.08, suspicionMult: 0.8, negPenalty: -0.05 },
   centurion: { truceReluctance: 1, rivalLevyEvery: 2, plotMult: 3.6, generalMult: 4.0, rivalStat: 3, rivalLoyalty: 18, rivalFunds: 2.0, praetorianDonative: 1500, procPerAct: 2, minorStandAside: 0, aiAggr: 1.0, leaderBias: 0, hold: 18, distMult: 1.0,
     dueOnVictory: 3, frontierMult: 1.0, startFunds: 1.0, playerEdge: 1.0, suspicionMult: 1.0, negPenalty: 0 },
@@ -51,7 +55,7 @@ export const ROAD_PREFS = {
 
 export const NEG_THRESHOLD = { wealth: 0.4, military: 0.4, politics: 0.25, charisma: 0.25 };
 
-export const FIGHT_RATIO = { wealth: 1.6, military: 1.15, politics: 1.5, charisma: 1.3 };
+export const FIGHT_RATIO = { wealth: 1.6, military: 1.3, politics: 1.5, charisma: 1.3 };
 
 export const ROAD_STAT = { wealth: 'opes', military: 'virtus', politics: 'auct', charisma: 'gratia' };
 

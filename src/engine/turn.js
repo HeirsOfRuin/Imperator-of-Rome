@@ -9,7 +9,7 @@ import { CONFIG, DIFFICULTY } from './config.js';
 import { buildBackground, newFaction, newLegion, rngs, townsFor, takeLegion, makeArmy } from './core.js';
 import { fight, fieldBattle } from './combat.js';
 import { history, scheduleSpawns, spawnProcedural } from './history.js';
-import { economy, frontiers, loyalty, mutinies, raids } from './world.js';
+import { economy, followers, frontiers, loyalty, mutinies, raids } from './world.js';
 import { factionTurn } from './ai.js';
 import { movement } from './movement.js';
 import { openingPages, storyTurn } from './story.js';
@@ -78,6 +78,7 @@ export function step(s) {
   if (!s.opts.human && s.factions.player.alive && s.factions.player.ownsProvince) botDiplomacy(s, s.factions.player);
   movement(s);
   mutinies(s);
+  followers(s);
   rome(s);
   hold(s);
   checks(s);

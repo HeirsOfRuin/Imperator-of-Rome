@@ -39,6 +39,7 @@ export function peopleBlocked(s, F, p, what) {
   }
   if (what === 'incite') {
     if (!F.rebel) return 'Only a rebel deals with barbarians against Romans';
+    if (holdsOn(s, F.id, p.frontier)) return 'You hold part of that frontier: they would not tell your men from his';
     if (!nearTo(s, F.id, p.frontier, 2)) return 'Too far: your envoys cannot reach them';
     if ((X.incited[p.frontier] ?? -1) > s.turn) return 'They are already up in arms';
     if (!FRONTIERS[p.frontier].provinces.some((pid) => s.prov[pid].owner !== F.id && s.prov[pid].owner !== 'state')) return 'No rival holds that frontier';
@@ -111,7 +112,13 @@ export function aiForeign(s, F, r) {
     if (s.threat[p.frontier] > 70 && F.treasury > p.subsidy * 3 && !peopleBlocked(s, F, p, 'subsidy')) dealWith(s, F, p.id, 'subsidy');
     if (p.treaty && F.treasury > p.treaty * 2.5 && !peopleBlocked(s, F, p, 'treaty')) dealWith(s, F, p.id, 'treaty');
   }
-  if (F.kind === 'player') return; // the measurement bot does not set barbarians on Romans
+  if (F.kind === 'player') {
+    // the measurement bot: now and then, set a frontier people on a stronger rival
+    if ((s.opts.noBotLever || []).includes('incite') || F.treasury < 600 || !r.chance(0.08)) return;
+    const p = PEOPLES.filter((x) => !peopleBlocked(s, F, x, 'incite')).find((x) => FRONTIERS[x.frontier].provinces.some((pid) => s.prov[pid].owner !== F.id && s.prov[pid].owner !== 'state' && strengthOf(s, s.prov[pid].owner) > strengthOf(s, F.id)));
+    if (p) dealWith(s, F, p.id, 'incite');
+    return;
+  }
   // rivals with gold to spare set the barbarians on the strongest claimant's frontier
   if (F.treasury > 500 && r.chance(0.05 * s.diff.aiAggr)) {
     let best = null, bs = 0;

@@ -350,13 +350,25 @@ export function botDiplomacy(s, P) {
   if (!off.includes('decree') && !s.opts.noPlayerSenate) aiSenate(s, P);
   if (!off.includes('clients')) for (const c of CLIENTS) if (!clientStatus(s, P, c) && P.treasury > c.cost + 200 && (!c.legit || P.road === 'military')) askClient(s, P, c.id);
   const near = rivalsOf(s, P).filter((Z) => hostile(s, P.id, Z.id) && distance(seat(s, P), seat(s, Z)) <= 3 && Z.kind !== 'barbarian');
+  // a partner at peace who is much weaker: ask for a neighbouring province
+  if (!(s.opts.noBotLever || []).includes('cede') && !(P.lastCede > s.turn - 4)) {
+    for (const Z of rivalsOf(s, P)) {
+      if (!s.peace[key(P.id, Z.id)] || strengthOf(s, Z.id) > 0.5 * strengthOf(s, P.id)) continue;
+      const q = ownedProvinces(s, Z.id).find((x) => x.id !== Z.base && x.id !== 'ROM' && !Object.values(s.legions).some((l) => l.loc === x.id && l.owner === Z.id) && ownedProvinces(s, P.id).some((m) => distance(m.id, x.id) <= 1));
+      if (q) { P.lastCede = s.turn; propose(s, P, Z, 'cede', { target: q.id }); break; }
+    }
+  }
   if (!near.length) return;
   near.sort((a, b) => strengthOf(s, b.id) - strengthOf(s, a.id));
   const big = near[0];
   if (!off.includes('truce') && strengthOf(s, big.id) > strengthOf(s, P.id) && s.prov.ROM.owner !== 'player') {
     const other = near.find((Z) => Z.id !== big.id && hostile(s, Z.id, big.id));
     if (other) propose(s, P, other, 'alliance', { target: big.id });
-    else propose(s, P, big, 'truce', { months: 6 });
+    else {
+      const r0 = propose(s, P, big, 'truce', { months: 6 });
+      // refused: try again with gold in hand, if there is gold to spare
+      if (r0.ok === false && !off.includes('gold') && !(s.opts.noBotLever || []).includes('gold') && P.treasury > 700) propose(s, P, big, 'truce', { months: 6, gold: 150 });
+    }
   }
   const weak = near.filter((Z) => canSubmit(s, Z) && Z.kind !== 'player' && strengthOf(s, Z.id) < 0.3 * strengthOf(s, P.id));
   if (!off.includes('submission') && !(P.lastDemand > s.turn - 3)) for (const Z of weak.slice(0, 1)) { P.lastDemand = s.turn; if (standing(s, P.id, Z.id) < 10 && P.treasury > 300) giveGift(s, P, Z, 80); propose(s, P, Z, 'submission'); }

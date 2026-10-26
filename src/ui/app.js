@@ -143,7 +143,7 @@ function renderTitle() {
 }
 
 const DIFF = {
-  legionary: ['Legionary', 'Rivals slower and fewer; hold Rome 12 months.'],
+  legionary: ['Legionary', 'Rivals slower and fewer; hold Rome 14 months.'],
   centurion: ['Centurion', 'The war as it was; hold Rome 18 months.'],
   legate: ['Legate', 'Every rival against the front-runner; hold Rome 24 months.'],
 };
@@ -459,7 +459,7 @@ function senatePane() {
 const FRONTIER_NAME = { britain: 'British', rhine: 'Rhine', danube: 'Danube', east: 'Eastern', judaea: 'Judaean', africa: 'African' };
 function frontiersPane() {
   return `<h2 class="sec">Beyond the frontiers</h2>
-    <p class="note">Gold keeps a people quiet for six months, or sets them on whoever holds their frontier. If you hold part of it, you burn too; if it comes out, the Senate will not forgive it.</p>
+    <p class="note">Gold keeps a people quiet for six months, or sets them on whoever holds their frontier: only a frontier you hold none of. If it comes out, the Senate will not forgive it.</p>
     ${V.peoples.map((q) => `<div class="card"><h3>${esc(q.name.charAt(0).toUpperCase() + q.name.slice(1))} <small>${esc(FRONTIER_NAME[q.frontier] || q.frontier)} frontier</small></h3>
       <p class="note">${esc(q.note)}</p>
       <div class="row">Threat<span class="pill ${q.threat >= 70 ? 'bad' : ''}">${q.threat}</span></div>

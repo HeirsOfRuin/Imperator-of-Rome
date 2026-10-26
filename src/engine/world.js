@@ -5,7 +5,7 @@ import { FRONTIERS } from '../data/world.js';
 import { BUILDINGS } from '../data/buildings.js';
 import { CONFIG } from './config.js';
 import { PROV, distance, isWinter } from './graph.js';
-import { log, money, cull, debtTotal, hostile, killFaction, legionPower, newFaction, ownedLegions, ownedProvinces, takeLegion } from './core.js';
+import { legionName, log, money, cull, debtTotal, hostile, killFaction, legionPower, newFaction, ownedLegions, ownedProvinces, takeLegion } from './core.js';
 import { fight } from './combat.js';
 import { hold } from './rome.js';
 
@@ -114,6 +114,24 @@ export function loyalty(s) {
     if (F.legit > 60) d += 0.5;
     d += loyaltyGood(s, F.id);
     l.loyalty = Math.max(0, Math.min(100, l.loyalty + d));
+  }
+}
+
+// Men follow a charismatic commander: a wavering rival legion near his army
+// may come over on its own. The same rule for every charisma-road claimant.
+export function followers(s) {
+  const r = s.R.events;
+  for (const A of Object.values(s.armies)) {
+    const F = s.factions[A.owner];
+    if (!F?.alive || F.road !== 'charisma' || A.id !== F.leaderArmy || F.kind === 'state') continue;
+    for (const l of Object.values(s.legions)) {
+      if (l.owner === F.id || l.loyalty >= 45 || l.id === 'PRAET' || s.factions[l.owner].kind === 'state' || !hostile(s, F.id, l.owner)) continue;
+      if (l.army && l.army === s.factions[l.owner].leaderArmy) continue; // not from under its general's eyes
+      if (distance(l.loc, A.loc) > 1 || !r.chance(CONFIG.charismaPull * F.stats.gratia)) continue;
+      takeLegion(s, l, F.id, 50);
+      if (F.kind === 'player') s.stats.followers = (s.stats.followers || 0) + 1;
+      log(s, `${l.id} follows ${F.id}`, l.loc, F.kind === 'player' ? `${legionName(l)} comes over to you of its own accord: the men would rather follow you.` : `${legionName(l)} goes over to ${F.name}.`);
+    }
   }
 }
 

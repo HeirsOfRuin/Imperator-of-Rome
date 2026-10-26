@@ -197,7 +197,7 @@ export function buyCost(s, F, b) {
 export function negotiateChance(s, F, b, ratio) {
   const kind = F.stats.gratia >= F.stats.auct ? 'appeal' : 'oath';
   const stat = kind === 'appeal' ? F.stats.gratia : F.stats.auct;
-  let p = 0.08 + 0.065 * stat + (F.legit - 40) / 220 - (bodyLoyalty(s, b) - 50) / 140 - s.diff.negPenalty;
+  let p = 0.08 + (0.065 + (kind === 'appeal' && F.road === 'charisma' ? CONFIG.charismaAppeal : 0)) * stat + (F.legit - 40) / 220 - (bodyLoyalty(s, b) - 50) / 140 - s.diff.negPenalty;
   if (kind === 'appeal' && F.comrades && bodyGroup(s, b) === F.comrades) p += 0.25;
   if (kind === 'oath' && s.emperor === F.id) p += 0.15;
   if (ratio >= 2) p += 0.1;

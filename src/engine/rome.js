@@ -60,9 +60,11 @@ export function hold(s) {
   // spending: the dole and the Senate (a human spends by choice: actions.js)
   if (!(E.kind === 'player' && s.opts.human)) {
   if (s.romeUnrest > 40 && E.treasury > 400) { money(s, E, -150, 'grain dole'); s.romeUnrest = Math.max(0, s.romeUnrest - 15); }
-  if (E.road === 'wealth' && E.legit < 50 && E.treasury > 600) { money(s, E, -200, 'senators'); E.legit += 4; addFavour(s, E.id, 10); }
-  if (E.road === 'politics' && E.legit < 70 && E.treasury > 300) { money(s, E, -80, 'consulships'); E.legit += 2; } // consulships for friends
-  if (E.road === 'charisma' && E.legit < 60 && E.treasury > 250) { money(s, E, -100, 'games'); E.legit += 2; s.romeUnrest = Math.max(0, s.romeUnrest - 10); } // games and largesse
+  // each road keeps its hold its own way, to the same level of legitimacy
+  if (E.road === 'wealth' && E.legit < 65 && E.treasury > 600) { money(s, E, -200, 'senators'); E.legit += 4; addFavour(s, E.id, 10); }
+  if (E.road === 'politics' && E.legit < 65 && E.treasury > 300) { money(s, E, -80, 'consulships'); E.legit += 2; } // consulships for friends
+  if (E.road === 'charisma' && E.legit < 65 && E.treasury > 250) { money(s, E, -100, 'games'); E.legit += 2; s.romeUnrest = Math.max(0, s.romeUnrest - 10); } // games and largesse
+  if (E.road === 'military' && E.legit < 65 && E.treasury > 300) triumph(s, E);
   }
   // conspiracy
   const plot = Math.max(0, (40 - E.legit) / 120 + s.romeUnrest / 500) * s.diff.plotMult * Math.max(0.6, 1 - 0.05 * italyLegs) * (1 - 0.05 * E.stats[ROAD_STAT[E.road]]) * (s.opts.noSenate ? 1 : plotMult(s, E.id));
@@ -100,6 +102,15 @@ export function hold(s) {
     if (E.kind === 'player') s.stats.generalsLost = (s.stats.generalsLost || 0) + 1;
     log(s, `general with ${l.id} goes over to ${to}`, l.loc, E.kind === 'player' ? `The legate of ${legionName(l)} goes over to ${who(s, to)}.` : null);
   }
+}
+
+// A triumph: the army parades through Rome. Legitimacy, and the legions in Italy
+// remember it. The military road's way of keeping the city (also offered to a human).
+export const TRIUMPH_COST = 100;
+export function triumph(s, E) {
+  money(s, E, -TRIUMPH_COST, 'triumph');
+  E.legit = Math.min(100, E.legit + 2);
+  for (const l of ownedLegions(s, E.id)) if (ITALY.includes(l.loc)) l.loyalty = Math.min(100, l.loyalty + 3);
 }
 
 export function checks(s) {

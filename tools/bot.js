@@ -64,7 +64,7 @@ function month(s) {
     if (lev && view(s).player.treasury > 900 && v2.legions.length < 8) must(s, { type: 'levy', pid: lev.id }, 'levy');
     if (v2.rome && v2.rome.youRule) { if (v2.rome.unrest > 40) act(s, { type: 'rome', spend: 'dole' }); if (v2.rome.whispers > 5) act(s, { type: 'rome', spend: 'informers' }); if (v2.player.legit < 40) act(s, { type: 'rome', spend: 'consulships' }); }
     // the Senate, the frontiers, trade: whatever the screens offer and the purse allows
-    const S = v2.senate;
+    const S = view(s).senate; // fresh: money spent above changes what the Senate will hear
     const m = S.motions.find((x) => !x.why && (x.id !== 'exiles' || v2.player.treasury > 500));
     if (m) must(s, { type: 'motion', motion: m.id }, 'motion');
     if (!S.courted && S.favour < 40 && view(s).player.treasury > 500) must(s, { type: 'court' }, 'court');

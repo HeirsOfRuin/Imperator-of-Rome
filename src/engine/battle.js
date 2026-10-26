@@ -458,7 +458,10 @@ export function decideDusk(b, fightOn) {
 }
 
 // Play the rest of a battle with every side on policy (auto-resolve, AI, measurement).
-export function autoBattle(b, policies = {}) {
+// retreat: { att|def: ratio } sounds the retreat for that side once it is
+// losing worse than the ratio, from the third round (the measurement bot's
+// use of the retreat button).
+export function autoBattle(b, policies = {}, retreat = {}) {
   let guard = 0;
   while (!b.over && guard++ < 12) {
     const r = streamFor(b.seed, b.turn * 100 + b.round, 'policy' + b.id);
@@ -468,6 +471,11 @@ export function autoBattle(b, policies = {}) {
       else aiOrders(b, key, r, p);
     }
     resolveRound(b);
+    for (const key of ['att', 'def']) {
+      if (b.over || !retreat[key] || b.round < 3) continue;
+      const mine = key === 'att' ? strengthRatio(b) : 1 / Math.max(0.01, strengthRatio(b));
+      if (mine < retreat[key]) soundRetreat(b, key);
+    }
     if (b.dusk) {
       const ahead = strengthRatio(b);
       decideDusk(b, ahead > 1.15 || ahead < 0.87);

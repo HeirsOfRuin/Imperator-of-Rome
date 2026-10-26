@@ -1,3 +1,10 @@
+/* Fonts ship with the game (fonts/, SIL Open Font License) so offline play looks the same. */
+@font-face { font-family: 'Cinzel'; font-style: normal; font-weight: 500; font-display: swap; src: url('../../fonts/cinzel-latin-500-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Cinzel'; font-style: normal; font-weight: 700; font-display: swap; src: url('../../fonts/cinzel-latin-700-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Source Sans 3'; font-style: normal; font-weight: 400; font-display: swap; src: url('../../fonts/source-sans-3-latin-400-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Source Sans 3'; font-style: normal; font-weight: 600; font-display: swap; src: url('../../fonts/source-sans-3-latin-600-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Source Sans 3'; font-style: normal; font-weight: 700; font-display: swap; src: url('../../fonts/source-sans-3-latin-700-normal.woff2') format('woff2'); }
+
 :root {
   --purple: #4E1A45; --purple-2: #7A3770;
   --scarlet: #C8102E; --crimson: #8C1C2B;

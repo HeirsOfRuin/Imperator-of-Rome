@@ -19,8 +19,11 @@
 // BUMP CACHE ON EVERY RELEASE (or stamp it with the build hash, as Farmyard's
 // bundler does) so returning players get the new build.
 
-const CACHE = 'imperator-v2';
-const SHELL = ['./', './index.html', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png'];
+const CACHE = 'imperator-v3';
+const SHELL = ['./', './index.html', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png',
+  // every font weight, not just the ones the first screen happened to use
+  './fonts/cinzel-latin-500-normal.woff2', './fonts/cinzel-latin-700-normal.woff2',
+  './fonts/source-sans-3-latin-400-normal.woff2', './fonts/source-sans-3-latin-600-normal.woff2', './fonts/source-sans-3-latin-700-normal.woff2'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil((async () => {

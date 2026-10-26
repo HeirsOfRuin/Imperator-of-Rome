@@ -17,7 +17,18 @@ Status: Phase 2 plus the first playtest's fixes: the field, buildings and govern
 
 ```
 npm run serve        # then open http://localhost:8000
-npm run check        # invariants, purse == ledger, bot through the player interface
+npm run check        # invariants, purse == ledger, save fixtures, bot through the player interface
 npm run measure -- 20
 node tools/smoke.mjs # phone smoke test (Playwright)
+node tools/offline.mjs # cut the network after the first load: no outside requests, bundled fonts
 ```
+
+Saves: `tests/fixtures/` holds real saves from every build that changed the
+format (v1 from Phase 2 and the first playtest build, v2 from the depth
+build). `tools/check-saves.js` loads each one, migrates it, checks every
+screen, plays six months and saves again. When the save format changes: bump
+`SAVE_VERSION`, add the migration in `src/engine/save.js`, keep the old
+fixtures and add new ones with `LABEL=v3-... node tools/make-fixtures.mjs`.
+
+Fonts: Cinzel and Source Sans 3 ship in `fonts/` (SIL Open Font License,
+licences alongside), so nothing loads from outside the game.

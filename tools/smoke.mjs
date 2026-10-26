@@ -103,6 +103,10 @@ for (const t of TABS) {
   const text = (await page.locator('main, #app, body').first().innerText()).trim();
   check(`tab ${t} renders`, text.length > 40, `${text.length} chars`);
   check(`tab ${t} no horizontal scroll`, (await overflow()) <= 1);
+  // the background must run the whole length of a long tab, even when a host page
+  // (the artifact frame) paints its own <html> background
+  const short = await page.evaluate(() => { const st = document.createElement('style'); st.id = 'hostbg'; st.textContent = 'html{background:#1e1e1e!important}'; document.head.prepend(st); const pad = document.createElement('div'); pad.style.height = '2000px'; document.getElementById('app').appendChild(pad); const gap = document.documentElement.scrollHeight - document.body.getBoundingClientRect().height; pad.remove(); st.remove(); return gap; });
+  check(`tab ${t} background covers the whole page`, short <= 1, `${Math.round(short)}px uncovered`);
   // Raw template tokens reaching the screen ("Back {lt}" shipped in The Company).
   const raw = text.match(/\{[a-z_.]+\}|undefined|NaN|\[object Object\]/g);
   check(`tab ${t} no raw tokens`, !raw, raw ? raw.slice(0, 3).join(' ') : '');

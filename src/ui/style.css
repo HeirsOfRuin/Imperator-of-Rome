@@ -14,13 +14,17 @@
   --nav-h: 58px; --hud-h: 34px;
 }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-html, body { margin: 0; height: 100%; }
+/* The page grows with its content, and the root paints the background too: a host page (the
+   artifact frame) that paints its own <html> background otherwise showed through below the first
+   screen of a long tab. */
+html, body { margin: 0; min-height: 100%; }
+html { background: var(--grey-1); }
 :root { color-scheme: light; } /* one look on every phone: dark-mode phones painted white text into white boxes */
 body { background: var(--grey-1); color: var(--grey-9); font: 15px/1.45 'Source Sans 3', system-ui, -apple-system, sans-serif; overscroll-behavior: none; }
 h1, h2, h3, .display { font-family: 'Cinzel', Georgia, serif; font-weight: 700; letter-spacing: .04em; margin: 0; }
 button { font: inherit; color: inherit; cursor: pointer; }
 button:disabled { cursor: default; }
-#app { max-width: 560px; margin: 0 auto; min-height: 100%; position: relative; }
+#app { max-width: 560px; margin: 0 auto; min-height: 100vh; min-height: 100dvh; position: relative; }
 
 /* HUD */
 .hud { position: sticky; top: 0; z-index: 20; height: var(--hud-h); display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 0 10px; background: var(--grey-9); color: var(--silver-2); font-size: 12.5px; font-variant-numeric: tabular-nums; }

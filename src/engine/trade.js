@@ -69,6 +69,13 @@ export function agreementGains(s, a, b) {
 
 export function tradeBetween(s, a, b) { return (s.trade || []).find((t) => key(t.a, t.b) === key(a, b)); }
 
+export function endTrade(s, a, b) {
+  if (!s.trade) return;
+  const n = s.trade.length;
+  s.trade = s.trade.filter((t) => key(t.a, t.b) !== key(a, b));
+  if (s.trade.length !== n) log(s, `trade ends ${a} ${b}`, null, `The trade between ${who(s, a)} and ${who(s, b).replace('You', 'you')} ends with the peace.`);
+}
+
 export function makeTrade(s, a, b) {
   initTrade(s);
   if (tradeBetween(s, a, b)) return;

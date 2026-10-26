@@ -17,7 +17,7 @@ import { BUILDINGS, SLOTS, TRAITS, GAMES_COST } from '../data/buildings.js';
 import { canBuild, candidates, revenueMult, revenueFlat, unrestDelta, levyCostMult, levyMonthsOff, levyCostFor, buildCost, gamesCost } from './buildings.js';
 import { CAPITALS } from '../data/seeds.js';
 import { ORDERS, orderBlocked, sectorState, frontOf, ROUNDS_DAY, ROUNDS_MAX } from './battle.js';
-import { act1Targets, bodyKey, lettersAllowed, TAX_LEVELS } from './actions.js';
+import { act1Targets, bodyKey, lettersAllowed, romeCosts, TAX_LEVELS } from './actions.js';
 import { standing, treatyBetween, evaluate, seat, clientStatus, canSubvert, subvertCost } from './diplomacy.js';
 import { decreeCost } from './senate.js';
 
@@ -247,6 +247,7 @@ export function view(s) {
     emperor: s.emperor ? s.factions[s.emperor].name : 'none', youRule: s.emperor === 'player', holder: s.factions[s.prov.ROM.owner]?.name,
     unrest: Math.round(s.romeUnrest), hold: P.hold || 0, holdTarget: s.diff.hold,
     whispers: P.whispers ? Math.round(P.whispers * 100) : 0, plotWarned: !!(P.plot && P.plot.warned), informersPaid: P.informers === s.turn + 1,
+    costs: romeCosts(s, P),
     praetorians: s.legions.PRAET ? { owner: s.factions[s.legions.PRAET.owner].name, loyalty: Math.round(s.legions.PRAET.loyalty), debt: k(s.legions.PRAET.debt) } : null,
     grain: Object.values(s.prov).filter((q) => PROV[q.id].grain && (q.owner === s.emperor || q.owner === 'state')).reduce((a, q) => a + PROV[q.id].grain, 0), grainNeed: CONFIG.romeGrainNeed,
   } : null;

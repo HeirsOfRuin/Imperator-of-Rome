@@ -1,5 +1,5 @@
 import { aiSenate, addFavour, isHostis } from './senate.js';
-import { agreementGains, makeTrade, tradeBetween } from './trade.js';
+import { agreementGains, endTrade, makeTrade, tradeBetween } from './trade.js';
 import { GOODS, PERSONALITY } from '../data/powers.js';
 import { flipProvince } from './core.js';
 import { addGeneral, formArmy } from './generals.js';
@@ -215,6 +215,7 @@ export function breakTreaty(s, F, treatyId) {
   const other = t.a === F.id ? t.b : t.a;
   s.treaties = s.treaties.filter((x) => x !== t);
   rebuildPeace(s);
+  endTrade(s, F.id, other); // war closes the roads now, not at the month's end
   F.legit = Math.max(0, F.legit - (t.hostages ? 15 : 6));
   addFavour(s, F.id, -4);
   adjustStanding(s, F.id, other, -50);
@@ -297,6 +298,14 @@ export function diplomacyTurn(s) {
   for (const F of Object.values(s.factions)) {
     if (!F.alive || F.kind === 'state' || F.kind === 'barbarian' || F.kind === 'player') continue;
     if (!r.chance(0.3)) continue;
+    // partners at peace trade, if both gain
+    if (!(s.opts.noTrade)) for (const Z of rivalsOf(s, F)) {
+      if (!s.peace[key(F.id, Z.id)] || tradeBetween(s, F.id, Z.id) || !r.chance(0.3)) continue;
+      if (!agreementGains(s, F.id, Z.id).a.length) continue;
+      if (Z.kind === 'player' && s.opts.human) s.offers.push({ id: s.nextTreaty++, from: F.id, type: 'trade', turn: s.turn });
+      else propose(s, F, Z, 'trade');
+      break;
+    }
     const mine = Math.max(1, strengthOf(s, F.id));
     const near = rivalsOf(s, F).filter((Z) => hostile(s, F.id, Z.id) && distance(seat(s, F), seat(s, Z)) <= 4);
     if (!near.length) continue;
@@ -313,14 +322,6 @@ export function diplomacyTurn(s) {
       if (other && (s.diff.leaderBias || r.chance(0.5))) propose(s, F, other, 'alliance', { target: big.id });
       else if (other) propose(s, F, other, 'truce', { months: 6 });
       else if (big.kind !== 'player' || r.chance(0.5)) propose(s, F, big, 'truce', { months: 6 });
-    }
-    // partners at peace trade, if both gain
-    if (!(s.opts.noTrade)) for (const Z of rivalsOf(s, F)) {
-      if (!s.peace[key(F.id, Z.id)] || tradeBetween(s, F.id, Z.id) || !r.chance(0.3)) continue;
-      if (!agreementGains(s, F.id, Z.id).a.length) continue;
-      if (Z.kind === 'player' && s.opts.human) s.offers.push({ id: s.nextTreaty++, from: F.id, type: 'trade', turn: s.turn });
-      else propose(s, F, Z, 'trade');
-      break;
     }
     // clients for whoever can reach them
     for (const c of CLIENTS) if (!c.mustHold && !clientStatus(s, F, c) && F.treasury > c.cost * 2 && r.chance(0.3)) askClient(s, F, c.id);

@@ -60,6 +60,7 @@ export function newLegion(s, l) {
     exp: l.exp ?? 1.0, owner: l.owner, loyalty: l.loyalty ?? 60, loc: l.loc ?? l.station, army: null,
     debt: 0, debtDue: -1, payMult: l.payMult ?? 1, standAside: {}, levy: !!l.levy,
   };
+  if (l.client) L.client = l.client;
   s.legions[L.id] = L;
   return L;
 }

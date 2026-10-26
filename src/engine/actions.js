@@ -20,6 +20,9 @@ import { step } from './turn.js';
 
 export const TAX_LEVELS = ['light', 'normal', 'heavy', 'extort'];
 
+// What spending in Rome costs this emperor (luxuries make games cheaper).
+export function romeCosts(s, F) { return { dole: 150, senators: 200, consulships: 80, games: Math.round(100 * gamesGoodMult(s, F.id)), informers: 120 }; }
+
 export function lettersAllowed(F) { return F.stats.auct >= 4 ? 2 : 1; }
 
 // A body in a province, found again from its key
@@ -191,7 +194,9 @@ export function act(s, a) {
       if (F.envoyTurn === s.turn && F.envoys >= (F.road === 'politics' ? 2 : 1)) return { error: 'Your envoys are all on the road' };
       F.envoys = (F.envoyTurn === s.turn ? F.envoys : 0) + 1; F.envoyTurn = s.turn;
       if (a.hostages && !F.acclaimed) return { error: 'Only a proclaimed claimant gives hostages' };
-      return propose(s, F, X, a.kind, { target: a.target, months: a.months || 12, hostages: a.hostages, gold: a.gold || 0 });
+      const gold = Math.floor(Number(a.gold) || 0);
+      if (gold < 0) return { error: 'Gold is given, not taken' };
+      return propose(s, F, X, a.kind, { target: a.target, months: a.months || 12, hostages: a.hostages, gold });
     }
     case 'answer': return answerOffer(s, a.offerId, a.accept);
     case 'breakTreaty': return breakTreaty(s, F, a.treatyId);
@@ -204,7 +209,7 @@ export function act(s, a) {
     case 'people': return dealWith(s, F, a.people, a.what);
     case 'rome': {
       if (s.emperor !== 'player') return { error: 'Only the emperor spends in Rome' };
-      const costs = { dole: 150, senators: 200, consulships: 80, games: Math.round(100 * gamesGoodMult(s, F.id)), informers: 120 };
+      const costs = romeCosts(s, F);
       const c = costs[a.spend];
       if (!c) return { error: 'Unknown' };
       if (F.spentRome === s.turn + ':' + a.spend) return { error: 'Already done this month' };

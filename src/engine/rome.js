@@ -12,11 +12,13 @@ export function rome(s) {
   const italyHostile = Object.values(s.legions).some((l) => ['ROM', 'ETR', 'CMP'].includes(l.loc) && hostile(s, owner, l.owner) && l.owner !== 'state');
   const terror = O && Object.values(s.legions).filter((l) => ITALY.includes(l.loc) && l.owner === owner).length >= 5;
   // the Senate under your swords revokes its decree; it votes you nothing until next month
+  let lifted = false;
   if (O && O.kind !== 'state' && isHostis(s, owner) && !italyHostile) {
     initSenate(s).hostis[owner] = s.turn;
+    lifted = true;
     log(s, `hostis lifted ${owner}`, 'ROM', owner === 'player' ? 'With your legions in the city, the Senate finds that you were never a public enemy after all.' : `The Senate revokes its decree against ${O.name}, whose legions are in the city.`);
   }
-  if (O && O.kind !== 'state' && O.acclaimed && !italyHostile && !isHostis(s, owner) && (O.legit >= recognitionLegit(s, O) || terror) && s.emperor !== owner) {
+  if (O && O.kind !== 'state' && O.acclaimed && !italyHostile && !lifted && !isHostis(s, owner) && (O.legit >= recognitionLegit(s, O) || terror) && s.emperor !== owner) {
     s.emperor = owner;
     if (O.legit < recognitionLegit(s, O)) addFavour(s, owner, -20); // a frightened Senate remembers
     log(s, `EMPEROR ${owner}`, 'ROM', owner === 'player' ? 'The Senate meets and votes you the powers of the emperor. The clock of your reign begins.' : `The Senate recognises ${O.name} as emperor.`);

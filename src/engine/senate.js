@@ -92,7 +92,7 @@ export function motionBlocked(s, F, m, target) {
       return '';
     case 'exiles':
       if (F.exiles) return 'Already done';
-      if (!F.ownsProvince) return 'Hold a province first';
+      if (!ownedProvinces(s, F.id).length) return 'Hold a province first';
       if (F.treasury < EXILES_COST) return 'Not enough money';
       return '';
   }
@@ -145,14 +145,8 @@ export function senateTurn(s) {
     if (isHostis(s, F.id)) for (const l of ownedLegions(s, F.id)) l.loyalty = Math.max(0, l.loyalty - 0.5);
   }
   if (s.opts.noSenate) return;
-  // an emperor with the Senate behind him outlaws his most dangerous disliked rival
-  const E = s.emperor && s.factions[s.emperor];
-  if (E && E.alive && !(E.kind === 'player') && favour(s, E.id) >= 55 && s.R.ai.chance(0.25)) {
-    const cands = Object.values(s.factions).filter((X) => X.alive && X.id !== E.id && X.acclaimed && X.kind !== 'state' && !isHostis(s, X.id) && favour(s, X.id) < 35 && !S.everHostis?.[E.id + '>' + X.id]);
-    cands.sort((a, b) => strengthOf(s, b.id) - strengthOf(s, a.id));
-    if (cands[0]) { S.everHostis = { ...(S.everHostis || {}), [E.id + '>' + cands[0].id]: true }; declareHostis(s, E, cands[0]); }
-  }
-  // the rivals' own motions, by the rules above
+  // the rivals' own motions, by the same rules as yours (an emperor outlawing a
+  // rival is one of them: aiSenate)
   for (const F of Object.values(s.factions)) {
     if (!F.alive || F.kind === 'state' || F.kind === 'barbarian' || F.kind === 'player') continue;
     aiSenate(s, F);
@@ -169,8 +163,9 @@ export function aiSenate(s, F) {
     if (m === 'decree' && F.treasury < decreeCost(F) + 200) continue;
     if (!motionBlocked(s, F, m)) { motion(s, F, m); return; }
   }
-  if (s.emperor === F.id || s.prov.ROM.owner === F.id) {
-    const X = Object.values(s.factions).filter((x) => x.alive && x.id !== F.id && !motionBlocked(s, F, 'hostis', x.id)).sort((a, b) => strengthOf(s, b.id) - strengthOf(s, a.id))[0];
+  // with the Senate in hand, outlaw the most dangerous rival it dislikes (not every month)
+  if ((s.emperor === F.id || s.prov.ROM.owner === F.id) && s.R.ai.chance(0.25)) {
+    const X = Object.values(s.factions).filter((x) => x.alive && x.id !== F.id && favour(s, x.id) < 35 && !motionBlocked(s, F, 'hostis', x.id)).sort((a, b) => strengthOf(s, b.id) - strengthOf(s, a.id))[0];
     if (X) motion(s, F, 'hostis', X.id);
   }
 }

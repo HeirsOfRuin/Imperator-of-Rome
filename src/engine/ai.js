@@ -169,7 +169,6 @@ export function playerStrategy(s, F) {
       const o = others.filter((l) => !(l.standAside.player > s.turn)).sort((a, c) => a.loyalty - c.loyalty)[0];
       b = o ? { kind: 'legion', legion: o } : { kind: 'aux', prov: s.prov[here] }; // those standing aside will not defend the governor
     }
-    if (!b && others.length === 0 && s.prov[here].owner !== F.id) b = { kind: 'aux', prov: s.prov[here] };
     if (b && (b.kind !== 'aux' || s.prov[here].owner !== F.id)) {
       const legsHere = mine.filter((l) => l.loc === here);
       const res = resolveEncounter(s, F, null, b, { act1: true, power: ctxPower, men: menMine, legions: legsHere });

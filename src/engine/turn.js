@@ -9,6 +9,7 @@ import { history, scheduleSpawns, spawnProcedural } from './history.js';
 import { economy, frontiers, loyalty, mutinies, raids } from './world.js';
 import { factionTurn } from './ai.js';
 import { movement } from './movement.js';
+import { openingPages, storyTurn } from './story.js';
 import { checks, hold, rome } from './rome.js';
 import { botDiplomacy, diplomacyTurn, initDiplomacy, adjustStanding, pruneTreaties } from './diplomacy.js';
 
@@ -77,6 +78,7 @@ export function step(s) {
   if (s.emperor && !s.factions[s.emperor]?.alive) s.emperor = null;
   pruneTreaties(s);
   s.turn++;
+  storyTurn(s);
   return s;
 }
 
@@ -98,14 +100,15 @@ export function newGame(opts) {
   const s = init(seed, { ...opts, road: roadOf[top], background: Object.fromEntries(BACKGROUND_STAGES.map((st, i) => [st, bg.chosen[i]])), human: true });
   s.factions.player.name = opts.name || 'You';
   s.dispatches.push({ t: 0, loc: opts.start, text: 'March, AD 68. Word comes from Gaul: Julius Vindex, governor of Lugdunensis, has risen against Nero.' });
+  s.story = opts.skipStory ? [] : openingPages(s); s.lastAct = 1;
   return s;
 }
 
 // Calibration jump: Second Bedriacum, October AD 69. You command the Danube
 // legions (Antonius Primus' role) against Vitellius' army before Cremona.
 export function bedriacum(opts = {}) {
-  const s = newGame({ seed: opts.seed || 69, difficulty: opts.difficulty || 'centurion', start: 'PAN', road: opts.road || 'military', name: opts.name });
-  s.turn = 19;
+  const s = newGame({ seed: opts.seed || 69, difficulty: opts.difficulty || 'centurion', start: 'PAN', road: opts.road || 'military', name: opts.name, skipStory: true });
+  s.turn = 19; s.lastAct = 4; s.neroPage = true; s.factions.player.generals = [];
   const P = s.factions.player;
   P.ownsProvince = true; P.rebel = true; P.acclaimed = true; P.legit = 40; P.treasury = 900;
   for (const pid of ['PAN', 'DAL', 'MOE', 'NIT']) s.prov[pid].owner = 'player';

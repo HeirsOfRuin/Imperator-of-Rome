@@ -3,7 +3,8 @@ import { GROUP_OF_PROVINCE, BACKGROUND } from '../data/world.js';
 import { streamFor } from './rng.js';
 import { CLIENTS } from '../data/people.js';
 import { CONFIG, ROAD_STAT, TOWN_MEN } from './config.js';
-import { ADJ, PROV, isWinter, route } from './graph.js';
+import { ADJ, PROV, isWinter, route, distance } from './graph.js';
+import { LEGIONS } from '../data/world.js';
 import { loyalty } from './world.js';
 
 const LEGION_NAMES = {
@@ -135,7 +136,8 @@ export function armyPower(s, A) {
   const F = s.factions[A.owner];
   let p = 0;
   for (const id of A.legions) p += legionPower(s, s.legions[id]);
-  const lead = A.id === F.leaderArmy ? 1 + 0.06 * F.stats.virtus : 1 + 0.02 * F.stats.virtus;
+  const g = A.general && (F.generals || []).find((x) => x.id === A.general);
+  const lead = A.id === F.leaderArmy ? 1 + 0.06 * F.stats.virtus : g ? 1 + 0.04 * g.skill : 1 + 0.02 * F.stats.virtus;
   return p * lead * (F.kind === 'player' ? s.diff.playerEdge : 1);
 }
 
@@ -251,6 +253,7 @@ export function flipProvince(s, P, fid, keepAux) {
   if (!keepAux) P.aux = Math.round(PROV[P.id].aux * 0.4);
   P.standAside = {};
   P.governor = null; P.ownedSince = s.turn;
+  seizeChest(s, P, old, fid);
   for (const t of P.towns) { t.men = Math.round(t.base * 0.7); t.standAside = {}; }
   const F = s.factions[fid];
   if (F.kind !== 'state') F.rebel = true;
@@ -314,4 +317,57 @@ export function strongestFaction(s) {
   let best = null, bs = -1;
   for (const f of Object.values(s.factions)) if (f.alive && f.kind !== 'state') { const x = strengthOf(s, f.id); if (x > bs) { bs = x; best = f.id; } }
   return best;
+}
+
+// The provincial chest: a province taken from the Senate gives up its
+// treasury, and the pay chest kept for the legions stationed there. It refills
+// over a year, so a province changing hands twice does not pay twice.
+export function chestOf(s, P) {
+  const full = PROV[P.id].rev * 1.5 + 180 * LEGIONS.filter((l) => l.station === P.id).length;
+  const since = P.chestTaken == null ? 99 : s.turn - P.chestTaken;
+  return Math.round(full * Math.min(1, since / 12));
+}
+function seizeChest(s, P, old, fid) {
+  const F = s.factions[fid];
+  if (old !== 'state' || !F || F.kind === 'state') return;
+  const x = chestOf(s, P);
+  P.chestTaken = s.turn;
+  if (x > 0) money(s, F, x, 'provincial treasury: ' + P.id);
+}
+
+// Which act the player is in (the screens, the story and the report agree).
+export function actOf(s) {
+  const P = s.factions.player;
+  return s.actIVOpen ? 4 : !P.ownsProvince ? 1 : !P.acclaimed ? 2 : 3;
+}
+
+// The nearest province a faction holds with no hostile army in it.
+export function nearestHeld(s, fid, from, avoid) {
+  let best = null, bd = Infinity;
+  for (const P of Object.values(s.prov)) {
+    if (P.owner !== fid || P.id === avoid) continue;
+    if (Object.values(s.armies).some((x) => x.loc === P.id && x.legions.length && hostile(s, fid, x.owner))) continue;
+    const d = distance(from, P.id);
+    if (d < bd) { bd = d; best = P.id; }
+  }
+  return best;
+}
+
+// An army falls back: one stage now, then on to the nearest province it holds.
+// loss: the share of men the rearguard costs.
+export function fallBack(s, A, loss = 0) {
+  const fid = A.owner;
+  const target = nearestHeld(s, fid, A.loc, A.loc);
+  let step = null;
+  if (A.from && A.from !== A.loc && !Object.values(s.armies).some((x) => x.loc === A.from && x.legions.length && hostile(s, fid, x.owner))) step = A.from;
+  else if (target) step = route(A.loc, target, isWinter(s.turn))[0] || null;
+  if (!step) step = ADJ[A.loc].map((e) => e.to).find((p) => !Object.values(s.armies).some((x) => x.loc === p && x.legions.length && hostile(s, fid, x.owner))) || null;
+  for (const id of A.legions) { const l = s.legions[id]; if (l && loss) l.men = Math.round(l.men * (1 - loss)); }
+  A.path = []; A.dest = null; A.edgeLeft = 0;
+  const left = A.loc;
+  if (step) { A.from = A.loc; A.loc = step; for (const id of A.legions) if (s.legions[id]) s.legions[id].loc = step; }
+  const home = nearestHeld(s, fid, A.loc, left);
+  if (home && home !== A.loc) setDest(s, A, home);
+  cull(s);
+  return A.loc;
 }

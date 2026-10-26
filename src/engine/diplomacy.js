@@ -1,3 +1,5 @@
+import { addGeneral, formArmy } from './generals.js';
+import { generalOf } from './combat.js';
 // Diplomacy (docs/FRAME-DIPLOMACY.md). One set of functions for every faction:
 // the player, the bot and the rivals propose, accept and break treaties the
 // same way, and every answer comes with its reasons in words.
@@ -122,6 +124,16 @@ export function submit(s, X, Y) {
   for (const P of ownedProvinces(s, X.id)) P.owner = Y.id;
   for (const A of Object.values(s.armies)) if (A.owner === X.id) delete s.armies[A.id];
   money(s, Y, Math.max(0, X.treasury), 'treasury of ' + X.name);
+  // to a human: he keeps command of his main army, as your general
+  if (Y.kind === 'player' && s.opts.human && legs.length) {
+    const g = addGeneral(s, Y, { id: 'G-' + X.id, name: X.name, style: generalOf(X), skill: Math.max(1, Math.min(4, X.stats.virtus)), how: 'with his legions' });
+    if (g) {
+      const byLoc = {};
+      for (const l of legs) (byLoc[l.loc] = byLoc[l.loc] || []).push(l.id);
+      const [loc, ids] = Object.entries(byLoc).sort((a, b) => b[1].length - a[1].length)[0];
+      formArmy(s, Y, loc, g.id, ids);
+    }
+  }
   X.alive = false; X.submittedTo = Y.id;
   if (s.emperor === X.id) s.emperor = null;
   s.treaties = s.treaties.filter((t) => t.a !== X.id && t.b !== X.id);

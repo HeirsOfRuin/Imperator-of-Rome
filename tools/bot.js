@@ -25,12 +25,18 @@ function must(s, a, ctx) {
 function month(s) {
   if (s.outcome) return;
   const v = view(s);
+  // pages and choices: read, and take the first answer it can afford
+  while (view(s).story) must(s, { type: 'readStory' }, 'story');
+  if (v.event) { const o = v.event.options.find((x) => !x.why); if (!o) fail(`event ${v.event.id} offers no answer`); else must(s, { type: 'choose', option: o.index }, 'event'); }
+  if (v.report) must(s, { type: 'readReport' }, 'report');
   // encounters first
   for (const pd of v.pending) {
     for (let guard = 0; guard < 6; guard++) {
       const vv = view(s);
       const p = vv.pending.find((x) => x.id === pd.id);
-      if (!p || !p.bodies.length) break;
+      if (!p) break;
+      if (p.defence) { must(s, { type: 'encounter', pendingId: p.id, option: /^You|even/.test(p.enemy.odds) ? 'fight' : 'withdraw' }, 'defence'); if (s.battle) must(s, { type: 'battleAuto' }, 'battle'); break; }
+      if (!p.bodies.length) break;
       const b = p.bodies[0];
       const pick = ['negotiate', 'buy', 'fight', 'bypass'].map((id) => b.options.find((o) => o.id === id)).find((o) => o && o.ok && (o.id !== 'negotiate' || /Likely|Even/.test(o.cost)) && (o.id !== 'fight' || !/far outnumber you|They are stronger/.test(o.cost)));
       if (!pick) { must(s, { type: 'encounter', pendingId: p.id, option: 'withdraw' }, 'withdraw'); break; }
@@ -55,9 +61,12 @@ function month(s) {
     const lettersTo = v2.provinces.filter((q) => q.canLetter).slice(0, v2.player.letters);
     for (const q of lettersTo) if (view(s).player.treasury > 50) must(s, { type: 'letter', pid: q.id }, 'letter');
     const lev = v2.provinces.find((q) => q.canLevy && ['legion', 'grain'].includes(q.tier));
-    if (lev && v2.player.treasury > 900 && v2.legions.length < 8) must(s, { type: 'levy', pid: lev.id }, 'levy');
+    if (lev && view(s).player.treasury > 900 && v2.legions.length < 8) must(s, { type: 'levy', pid: lev.id }, 'levy');
     if (v2.player.decree === false && v2.player.acclaimed && v2.player.legit >= 30 && v2.player.treasury > v2.player.decreeCost + 300) act(s, { type: 'decree' });
     if (v2.rome && v2.rome.youRule) { if (v2.rome.unrest > 40) act(s, { type: 'rome', spend: 'dole' }); if (v2.rome.whispers > 5) act(s, { type: 'rome', spend: 'informers' }); if (v2.player.legit < 40) act(s, { type: 'rome', spend: 'consulships' }); }
+    // legions left behind join the army you lead (one stays on a threatened frontier)
+    const lead = v2.myArmies.find((a) => a.leader);
+    if (lead) for (const g of v2.garrisons) for (const l of g.legions.slice(v2.provinces.find((q) => q.id === g.pid)?.threat >= 60 ? 1 : 0)) must(s, { type: 'joinArmy', legionId: l.id, armyId: lead.id }, 'join');
     // march: Rome when ready, else the nearest province not ours
     const A = v2.army;
     if (A && !A.halted && (!A.dest || !A.path.length)) {

@@ -75,7 +75,7 @@ function makeSide(spec) {
   }
   const cav = Math.round(240 * spec.legions.length * (spec.cavalryMult || 1));
   return {
-    fid: spec.fid, armyId: spec.armyId, general: spec.general || 'methodical', virtus: spec.virtus || 2, gratia: spec.gratia || 2, comrades: spec.comrades || null, edge: spec.edge || 1,
+    fid: spec.fid, armyId: spec.armyId, general: spec.general || 'methodical', generalId: spec.generalId || null, present: spec.present !== false, virtus: spec.virtus || 2, gratia: spec.gratia || 2, comrades: spec.comrades || null, edge: spec.edge || 1,
     cohorts: Object.fromEntries(cohorts.map((c) => [c.id, c])), sectors, reserve, reserveUsed: false,
     cav: [0, 2].map((pos) => ({ pos, men: cav, max: cav, end: 100, order: 'screen', beaten: 0 })),
     legate: { action: 'stay', target: 1 }, ruse: null, ruseUsed: false, rallyUsed: false, dead: false,
@@ -225,7 +225,7 @@ export function resolveRound(b) {
     if (L.action === 'ride' && !me.sectors[L.target].routed) {
       for (const c of frontOf(me, L.target)) c.morale = clamp(c.morale + 12, 0, 100);
       const danger = 0.01 + (me.sectors[L.target].dist === 0 && them.sectors[L.target].order === 'charge' ? 0.02 : 0);
-      if (r.chance(danger)) { me.dead = true; for (const c of Object.values(me.cohorts)) c.morale = clamp(c.morale - 25, 0, 100); say(b, b.player === key ? 'You are struck down at the head of your men.' : 'Their general falls. A groan runs down their line.'); }
+      if (r.chance(danger)) { me.dead = true; for (const c of Object.values(me.cohorts)) c.morale = clamp(c.morale - 25, 0, 100); say(b, b.player === key ? (me.present ? 'You are struck down at the head of your men.' : 'Your general is struck down at the head of the men.') : 'Their general falls. A groan runs down their line.'); }
       else if (b.player === key) say(b, `You ride to ${sectorName(b, key, L.target)}; the men cheer.`);
     } else if (L.action === 'rally' && !me.rallyUsed && me.sectors[L.target].routed) {
       const S = me.sectors[L.target];
@@ -495,4 +495,20 @@ export function survivors(b, sideKey) {
 }
 export function defectors(b, sideKey) {
   return [...new Set(Object.values(b.sides[sideKey].cohorts).filter((c) => c.id.endsWith('*')).map((c) => c.legion))];
+}
+
+// Sound the retreat: the side leaves the field in order. The lines in contact
+// pay for it; the rest walk away. The battle is lost, the army is not.
+export function soundRetreat(b, key, losses = [0.1, 0.04]) {
+  const side = b.sides[key];
+  for (let k = 0; k < 3; k++) {
+    const S = side.sectors[k];
+    const f = S.dist === 0 ? losses[0] : losses[1];
+    for (const id of [...S.lines.flat(), ...S.broken]) { const c = side.cohorts[id]; if (c.men > 0) c.men = Math.round(c.men * (1 - f)); }
+  }
+  b.over = true; b.dusk = false;
+  b.winner = key === 'att' ? 'def' : 'att';
+  b.retreated = key;
+  if (b.player) say(b, key === b.player ? 'The trumpets sound the retreat. Your lines step back, cohort by cohort.' : 'Their trumpets sound the retreat.');
+  return b;
 }

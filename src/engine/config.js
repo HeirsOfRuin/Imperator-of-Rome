@@ -25,6 +25,11 @@ export const CONFIG = {
   declareDeadline: 2,      // months after Act IV opens
   largeBattleMen: 18000,
   supplyLimit: 8,          // legions one army can be fed in one place
+  homePayMult: 0.6,        // pay for a legion in its own province (requisitions in kind)
+  legateSalary: 15,        // a month, until you hold a province
+  partPayDelay: 3,
+  rearguardLoss: 0.03,     // men lost falling back before an attacker
+  retreatLoss: [0.1, 0.04], // sounding the retreat: lines in contact, lines apart         // months a part payment buys
 };
 
 export const DIFFICULTY = {
@@ -32,7 +37,7 @@ export const DIFFICULTY = {
     dueOnVictory: 4, frontierMult: 0.7, startFunds: 1.2, playerEdge: 1.08, suspicionMult: 0.8, negPenalty: -0.05 },
   centurion: { truceReluctance: 1, rivalLevyEvery: 2, plotMult: 3.6, generalMult: 4.0, rivalStat: 3, rivalLoyalty: 18, rivalFunds: 2.0, praetorianDonative: 1500, procPerAct: 2, minorStandAside: 0, aiAggr: 1.0, leaderBias: 0, hold: 18, distMult: 1.0,
     dueOnVictory: 3, frontierMult: 1.0, startFunds: 1.0, playerEdge: 1.0, suspicionMult: 1.0, negPenalty: 0 },
-  legate: { truceReluctance: 2, rivalLevyEvery: 1, plotMult: 5.0, generalMult: 5.0, rivalStat: 3, rivalLoyalty: 20, rivalFunds: 2.6, praetorianDonative: 2500, procPerAct: 3.5, minorStandAside: 0, aiAggr: 1.2, leaderBias: 1, hold: 24, distMult: 1.0,
+  legate: { truceReluctance: 2, rivalLevyEvery: 1, plotMult: 5.0, generalMult: 5.0, rivalStat: 3, rivalLoyalty: 20, rivalFunds: 2.3, praetorianDonative: 2500, procPerAct: 3.5, minorStandAside: 0, aiAggr: 1.2, leaderBias: 1, hold: 24, distMult: 1.0,
     dueOnVictory: 1, frontierMult: 1.4, startFunds: 1.0, playerEdge: 1.0, suspicionMult: 1.3, negPenalty: 0.05 },
 };
 

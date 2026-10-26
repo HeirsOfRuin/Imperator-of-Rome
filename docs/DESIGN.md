@@ -369,3 +369,74 @@ option risks.
   - Military still trails on the easier levels.
   - Politics is below and charisma above the 3–8% band on Legate.
   - Dying with your army is the top cause of loss (27–30%).
+
+## 15. After the first playtest, as built (2026-10-26)
+
+What the author hit on his phone, and what changed. The table of his words and
+the class of each point is in `docs/FRAME-PLAYTEST1.md`.
+
+**Money.** The first province was a trap: no income until it fell, then a
+legion province's revenue (Germania Superior: 80k) against three legions' pay
+(about 280k). Now:
+- Taking a province from the Senate seizes its treasury: 1.5 months of revenue
+  plus 180k for each legion stationed there by right (the pay chest). It refills
+  over a year (`chestOf`, core.js). Germania Superior: 660k. Rivals get it too.
+- A legion in its own province, held by its own side, costs 60% of its pay
+  (requisitions in kind); two or more there add 1 unrest a month (`legionPay`,
+  world.js).
+- In Act I you draw a legate's salary, 15k a month.
+- One function each for income, pay, upkeep and the monthly balance
+  (`incomeOf`, `payOf`, `upkeepOf`, `balanceOf`); the HUD, the Provinces tab and
+  the report all read them.
+
+**Promises.** The promise option shows the month it falls due and your monthly
+balance. A promise can be half-paid once: the rest waits three more months
+(`payPart`).
+
+**Encounters and retreat.** A rival army coming at yours no longer fights at
+once: it halts and you see both sides (men, legions, who commands, the odds)
+and choose **Stand and fight** or **Fall back** toward your nearest held
+province (the rearguard loses 3%). Undecided at month's end: you fall back, as
+with every other encounter. On the field, **Sound the retreat** ends the battle
+as a loss without a rout: the lines in contact lose 10%, the rest 4%, no
+legions go over, no death roll, and the army falls back (`soundRetreat`,
+battle.js; `fallBack`, core.js). The AI's own decision to attack is unchanged:
+it attacks only when it would have fought before.
+
+**Armies and generals** (generals.js). Your legions no longer gather on their
+own. Each legion is in an army or holds the province it stands in. Generals
+swear to you when your province falls (one), when a rival submits (he keeps
+his army, as your general), and in events; at most four. A general's army
+marches on your orders, fights in his style (methodical, cautious, impetuous,
+cunning), adds 4% strength per point of skill, and he can die when it is
+beaten. You are only on the field with the army you lead: elsewhere your
+legate actions are not offered. Actions: form an army, split one, join, leave a
+legion as garrison, give an army to a general, disband. Legions sent to an army
+elsewhere march as a column and merge on arrival. Only the human player has
+generals; rivals and the measurement bot are unchanged.
+
+**Explanation.** A one-screen report after every month (money in and out by
+kind, provinces and legions won or lost, men, legitimacy, the news that reached
+you, up to four warnings, the next step). A "Now" line on the map and Army tab
+says what to do next and which tab does it. Short guides on the battle screen
+and the province sheet. The province overview shows works and forces with a
+button to each tab; the Provinces list has Build, Forces and Governor buttons.
+
+**Story** (story.js). Three opening pages (the world in March 68, how the war is
+won, your command), a page for each new act and for Nero's death, and 17
+character events with two or three answers each, at most one a month (40%),
+most once a campaign. Every answer moves a number: money through the ledger,
+loyalty, legitimacy, unrest, suspicion, men, a general. Left undecided, the
+last (quiet) answer is taken. Human games only, on their own random stream, so
+measurement is untouched. A record of your answers is on the Legate tab.
+
+**Balance after the changes** (25–40 campaigns per start and road): Legionary
+39%, Centurion 15%, Legate 4.8% (Legate rival funds 2.6 → 2.3, since rivals
+seize treasuries too). Battle: careful play 58% vs auto 42% in even battles,
+unchanged.
+
+**Open.** Military road weak on Legionary (25% against 41–47%); wealth weakest
+on Legate (1.8%). The interface bot plays to the end without crashing but
+rarely wins: it is a stall and crash test, not a player. The events are
+untuned: none is large enough to swing a campaign, which is deliberate until
+the author has played them.

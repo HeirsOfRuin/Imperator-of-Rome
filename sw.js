@@ -19,7 +19,7 @@
 // BUMP CACHE ON EVERY RELEASE (or stamp it with the build hash, as Farmyard's
 // bundler does) so returning players get the new build.
 
-const CACHE = 'imperator-v1';
+const CACHE = 'imperator-v2';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png'];
 
 self.addEventListener('install', (event) => {

@@ -25,7 +25,7 @@ const ROOT = process.env.ROOT || process.cwd();          // folder holding index
 const START = ['[data-act="new"]', '[data-act="start"]'];
 const CLOCK = '.hud .turn';
 const ADVANCE = '[data-act="end-turn"]';
-const DISMISS = ['.modal [data-choice]:not([disabled])', '.modal [data-act="close"]', '.sheet [data-choice]:not([disabled])'];
+const DISMISS = ['.page button[data-a]:not([disabled])', '.battle button[data-a*="battleAuto"]', '.battle .card button[data-a*="battleRound"]', '.modal [data-choice]:not([disabled])', '.modal [data-act="close"]', '.sheet [data-choice]:not([disabled])'];
 const TABS = ['[data-tab="map"]', '[data-tab="realm"]', '[data-tab="army"]', '[data-tab="diplomacy"]', '[data-tab="dispatches"]', '[data-tab="legate"]'];
 const TURNS = Number(process.env.TURNS || 14);
 // ------------------------------------------------------------------------------
@@ -66,14 +66,20 @@ flushErrors('start');
 
 let advanced = 0;
 for (let i = 0; i < TURNS; i++) {
+  const clear = async () => {
+    for (let g = 0; g < 10; g++) { // clear pages and modals; a modal that eats clicks should FAIL, not time out
+      let clicked = false;
+      for (const d of DISMISS) if (await page.locator(d).count()) { if (i === 0 && g < 4) await page.screenshot({ path: `${SHOTS}/page-${g}.png` }); await page.locator(d).first().click(); clicked = true; break; }
+      if (!clicked) break;
+      await page.waitForTimeout(60);
+    }
+  };
+  await clear();
+  if (!(await page.locator(ADVANCE).count())) { await page.screenshot({ path: `${SHOTS}/stuck.png` }); console.log((await page.innerText('#app')).slice(0, 600)); }
   const before = (await page.locator(CLOCK).textContent())?.trim();
   await page.click(ADVANCE, { timeout: 5000 });
-  for (let g = 0; g < 6; g++) { // clear modals; a modal that eats clicks should FAIL, not time out
-    let clicked = false;
-    for (const d of DISMISS) if (await page.locator(d).count()) { await page.locator(d).first().click(); clicked = true; break; }
-    if (!clicked) break;
-    await page.waitForTimeout(60);
-  }
+  if (i === 2) await page.screenshot({ path: `${SHOTS}/report.png` });
+  await clear();
   if (await page.locator('.end').count()) {
     // a campaign that ends is fine: the end screen must render, then start again
     const txt = await page.innerText('.end');

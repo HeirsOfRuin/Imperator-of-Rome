@@ -1,6 +1,8 @@
+import { generalById, generalDies } from './generals.js';
+import { legionPay } from './world.js';
 import { CONFIG, FIGHT_RATIO, NEG_THRESHOLD, ROAD_PREFS } from './config.js';
 import { ADJ, PROV } from './graph.js';
-import { legionName, who, money, armyPower, bodyGroup, bodyLoyalty, bodyMen, bodyPower, buyCost, cull, debtTotal, flipProvince, gainBody, hostile, killFaction, log, negotiateChance, ownedLegions, retreatLegion, setAside, takeLegion } from './core.js';
+import { fallBack, legionName, who, money, armyPower, bodyGroup, bodyLoyalty, bodyMen, bodyPower, buyCost, cull, debtTotal, flipProvince, gainBody, hostile, killFaction, log, negotiateChance, ownedLegions, retreatLegion, setAside, takeLegion } from './core.js';
 import { hold } from './rome.js';
 import { setupBattle, autoBattle, survivors, defectors } from './battle.js';
 import { CAPITALS } from '../data/seeds.js';
@@ -95,7 +97,7 @@ export function resolveEncounter(s, F, A, b, ctx = {}) {
   const prefs = (F.allowed ? ROAD_PREFS[F.road].filter((o) => F.allowed.includes(o)) : ROAD_PREFS[F.road]);
   const myPower = A ? armyPower(s, A) : ctx.power;
   const ratio = myPower / Math.max(1, bodyPower(s, b));
-  const reserve = ownedLegions(s, F.id).reduce((a, l) => a + l.men * CONFIG.payPerMan * l.payMult, 0);
+  const reserve = ownedLegions(s, F.id).reduce((a, l) => a + legionPay(s, l), 0);
   const aggr = F.kind === 'player' ? 1 : s.diff.aiAggr;
   const racing = A && A.dest === 'ROM' && !ctx.destination && (b.kind === 'town' || b.kind === 'aux');
   const order = racing && prefs.includes('bypass') ? ['bypass', ...prefs.filter((o) => o !== 'bypass')] : prefs;
@@ -182,7 +184,8 @@ export function fight(s, F, A, b, ctx) {
   if (b.kind === 'army' && A) {
     const ratioD = bodyPower(s, b) / Math.max(1, armyPower(s, A));
     const back = ADJ[b.army.loc].map((e) => e.to).find((p) => s.prov[p].owner === b.army.owner && !Object.values(s.armies).some((x) => x.loc === p && hostile(s, x.owner, b.army.owner)));
-    if (ratioD < 0.75 && back && r.chance(0.7)) {
+    // (a human defender has already chosen to stand)
+    if (ratioD < 0.75 && back && !(b.army.owner === 'player' && s.opts.human) && r.chance(0.7)) {
       b.army.loc = back; b.army.path = []; for (const id of b.army.legions) s.legions[id].loc = back;
       log(s, `${b.army.owner} withdraws from ${A.loc} before ${F.id}`, A.loc, `${who(s, b.army.owner)} ${b.army.owner === 'player' ? 'fall' : 'falls'} back from ${PROV[A.loc].name} rather than fight ${who(s, F.id).replace('You', 'you')}.`);
       return 'cleared';
@@ -253,8 +256,8 @@ export function fight(s, F, A, b, ctx) {
   // attacker lost
   for (const l of attLegs) if (s.legions[l.id]) l.loyalty -= 8;
   if (A) {
-    if (A.id === F.leaderArmy) leaderDefeated(s, F, A, large);
-    if (s.armies[A.id] && A.from) { A.loc = A.from; A.path = []; }
+    armyDefeated(s, F, A, large);
+    if (s.armies[A.id] && A.from) { A.loc = A.from; A.path = []; for (const id of A.legions) if (s.legions[id]) s.legions[id].loc = A.loc; }
   }
   return 'lost';
 }
@@ -267,12 +270,18 @@ export function defeatArmy(s, D, F, A, large) {
     if (!l) continue;
     if (r.chance((large ? 0.25 : 0.2) + (F.road === 'military' ? 0.15 : 0))) { takeLegion(s, l, F.id, 30); if (A) { l.army = A.id; l.loc = A.loc; A.legions.push(l.id); } }
   }
-  if (D.id === owner.leaderArmy) leaderDefeated(s, owner, D, large);
+  armyDefeated(s, owner, D, large);
   if (s.armies[D.id]) {
     const back = ADJ[D.loc].map((e) => e.to).find((p) => s.prov[p].owner === D.owner);
     if (back) { D.loc = back; D.path = []; for (const id of D.legions) s.legions[id].loc = back; }
     else for (const id of [...D.legions]) retreatLegion(s, s.legions[id]);
   }
+}
+
+// A beaten army: its commander may fall. You, if you led it; your general, if he did.
+export function armyDefeated(s, F, A, large) {
+  if (A.id === F.leaderArmy) return leaderDefeated(s, F, A, large);
+  if (A.general && F.kind === 'player' && s.R.combat.chance(large ? 0.15 : 0.05)) generalDies(s, F, A.general);
 }
 
 export function leaderDefeated(s, F, A, large) {
@@ -293,8 +302,10 @@ export function generalOf(F) {
   return GENERAL_OF[F.id] || { military: 'methodical', wealth: 'cautious', politics: 'cautious', charisma: 'impetuous' }[F.road] || 'methodical';
 }
 function sideSpec(s, F, A, edge) {
+  const g = F.kind === 'player' && A.general ? generalById(F, A.general) : null;
   return {
-    fid: F.id, armyId: A.id, general: generalOf(F), virtus: F.stats.virtus, gratia: F.stats.gratia, comrades: F.comrades || null, edge,
+    fid: F.id, armyId: A.id, general: g ? g.style : generalOf(F), generalId: g ? g.id : null, present: F.kind !== 'player' || A.id === F.leaderArmy,
+    virtus: g ? g.skill : F.stats.virtus, gratia: F.stats.gratia, comrades: F.comrades || null, edge,
     cavalryMult: F.road === 'military' ? 1.3 : 1,
     legions: A.legions.map((id) => s.legions[id]).filter(Boolean).map((l) => ({ id: l.id, men: l.men, exp: l.exp, loyalty: l.loyalty, group: l.group, client: l.client || null })),
   };
@@ -350,6 +361,17 @@ export function concludeBattle(s, b) {
   }
   const attWins = winnerKey === 'att';
   const winner = attWins ? F : D, loser = attWins ? D : F;
+  if (b.retreated) {
+    // the retreat was sounded: the field is lost, the army is not
+    const LA = attWins ? DA : A;
+    log(s, `BATTLE ${loser.id} retreats at ${b.loc}`, b.loc, `Battle ${name}: ${who(s, loser.id)} ${loser.kind === 'player' ? 'sound' : 'sounds'} the retreat and ${loser.kind === 'player' ? 'leave' : 'leaves'} the field to ${who(s, winner.id).replace('You', 'you')}.`);
+    winner.legit = Math.min(100, winner.legit + 2);
+    loser.legit = Math.max(0, loser.legit - 3);
+    if (LA && s.armies[LA.id]) { for (const id of LA.legions) if (s.legions[id]) s.legions[id].loyalty -= 3; fallBack(s, LA, 0); }
+    s.battle = null;
+    generalsStruck(s, b, F, D);
+    return attWins ? 'cleared' : 'lost';
+  }
   log(s, `BATTLE ${F.id} vs ${D.id} at ${b.loc} -> ${winner.id}`, b.loc, `Battle ${name}: ${who(s, winner.id)} ${winner.kind === 'player' ? 'win' : 'wins'} against ${who(s, loser.id).replace('You', 'you')}.`);
   if (winner.kind === 'player') s.stats.fightsWon++;
   if (loser.kind === 'player') s.stats.fightsLost++;
@@ -367,17 +389,24 @@ export function concludeBattle(s, b) {
   } else {
     if (A && s.armies[A.id]) {
       for (const id of A.legions) if (s.legions[id]) s.legions[id].loyalty -= 8;
-      if (A.id === F.leaderArmy && F.alive) leaderDefeated(s, F, A, large);
+      if (F.alive) armyDefeated(s, F, A, large);
       if (s.armies[A.id] && b.attFrom) { A.loc = b.attFrom; A.path = []; for (const id of A.legions) if (s.legions[id]) s.legions[id].loc = A.loc; }
     }
     res = 'lost';
   }
-  // a general struck down on the field (after the field is settled)
+  generalsStruck(s, b, F, D);
+  void r;
+  return res;
+}
+
+// a general struck down on the field (after the field is settled). A general
+// commanding for you dies; you die only if you were there.
+function generalsStruck(s, b, F, D) {
   for (const [key, X] of [['att', F], ['def', D]]) {
     if (!b.sides[key].dead || !X.alive) continue;
+    const gid = b.sides[key].generalId;
+    if (gid) { generalDies(s, X, gid); continue; }
     if (X.anchored && !s.actIVOpen) s.stats.anchorSaves++;
     else killFaction(s, X, 'death');
   }
-  void r;
-  return res;
 }

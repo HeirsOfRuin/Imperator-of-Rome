@@ -4,8 +4,11 @@ import { PROVINCES } from '../data/world.js';
 import { CLIENTS } from '../data/people.js';
 import { CONFIG } from './config.js';
 import { PROV, ITALY, distance } from './graph.js';
-import { legionName, bodiesAt, debtTotal, ownedLegions, ownedProvinces, strengthOf, armyPower } from './core.js';
-import { optionInfo } from './combat.js';
+import { legionName, bodiesAt, debtTotal, ownedLegions, ownedProvinces, strengthOf, armyPower, chestOf, actOf, nearestHeld } from './core.js';
+import { balanceOf, incomeOf, payOf, upkeepOf, legionPay, atHome, provinceRevenue } from './world.js';
+import { commanderOf, STYLE_TEXT, armyOfGeneral, MAX_GENERALS } from './generals.js';
+import { eventView } from './story.js';
+import { optionInfo, generalOf } from './combat.js';
 import { BUILDINGS, SLOTS, TRAITS, GAMES_COST } from '../data/buildings.js';
 import { canBuild, candidates, revenueMult, revenueFlat, unrestDelta, levyCostMult, levyMonthsOff } from './buildings.js';
 import { CAPITALS } from '../data/seeds.js';
@@ -36,7 +39,8 @@ function legionView(s, l) {
   return {
     id: l.id, name: legionName(l), men: l.men, loyalty: Math.round(l.loyalty), exp: l.exp,
     loc: l.loc, station: l.station, army: l.army, garrison: !!l.garrison, debt: k(l.debt), debtDue: l.debtDue, overdue: !!l.overdue,
-    bought: !!l.bought, levy: !!l.levy, client: l.client || null, pay: k(l.men * CONFIG.payPerMan * l.payMult),
+    bought: !!l.bought, levy: !!l.levy, client: l.client || null, pay: k(legionPay(s, l)), home: atHome(s, l),
+    due: l.debt > 0 ? monthName(Math.max(l.debtDue, s.turn)) : null, dueIn: l.debt > 0 ? Math.max(0, l.debtDue - s.turn) : null, canPart: l.debt > 0 && !l.extended,
   };
 }
 
@@ -51,7 +55,8 @@ function bodyView(s, F, A, b, ctx) {
     loyalty: b.kind === 'legion' ? Math.round(b.legion.loyalty) : null, comrades,
     options: [
       { id: 'buy', label: 'Buy them', cost: `${k(info.buy.cost)}k now`, ok: info.buy.ok, why: info.buy.why },
-      { id: 'promise', label: 'Promise money', cost: `${k(info.buy.promise)}k owed in ${CONFIG.promiseMonths} months`, ok: info.buy.promiseOk, why: info.buy.promiseOk ? '' : info.buy.why },
+      { id: 'promise', label: 'Promise money', cost: `${k(info.buy.promise)}k due ${monthName(s.turn + CONFIG.promiseMonths)}`, ok: info.buy.promiseOk, why: info.buy.promiseOk ? '' : info.buy.why,
+        note: `You make ${balanceOf(s, F) >= 0 ? '+' : ''}${k(balanceOf(s, F))}k a month now, and already owe ${k(debtTotal(s, F.id))}k.` },
       { id: 'negotiate', label: info.negotiate.kind === 'appeal' ? 'Appeal to them' : 'Offer terms in the Senate\'s name', cost: `${band(info.negotiate.chance)}${comrades ? ' · your old comrades' : ''}`, ok: info.negotiate.ok, why: info.negotiate.why },
       { id: 'fight', label: b.kind === 'town' ? 'Storm the walls' : 'Fight', cost: ratioBand(info.ratio), ok: true, why: '' },
       ...(A ? [{ id: 'bypass', label: 'March past', cost: 'Leaves them behind you', ok: info.bypass.ok, why: info.bypass.why }] : []),
@@ -82,6 +87,8 @@ const ORDER_TEXT = {
   charge: ['Charge', 'Shock attack; very tiring'], relieve: ['Relieve', 'Fresh line to the front'], fallback: ['Fall back', 'Give ground'],
 };
 const band3 = (x, a, b) => (x >= b ? 'fresh' : x >= a ? 'tiring' : 'spent');
+
+const sideMen = (side) => Object.values(side.cohorts).filter((c) => c.state !== 'routed' && c.state !== 'gone').reduce((a, c) => a + Math.max(0, c.men), 0) + side.cav.reduce((a, c) => a + c.men, 0);
 
 // The field, seen from the player's side: you are always at the bottom, and
 // sector 0 is your left.
@@ -117,7 +124,7 @@ function battleView(s) {
   });
   return {
     id: b.id, loc: b.loc, locName: CAPITALS[b.loc] || PROV[b.loc]?.name, round: b.round, rounds: ROUNDS_DAY, maxRounds: ROUNDS_MAX, night: b.round >= ROUNDS_DAY, dusk: b.dusk, over: b.over,
-    result: b.over ? (b.winner === 'draw' ? 'draw' : b.winner === youKey ? 'won' : 'lost') : null, attacking: youKey === 'att',
+    result: b.over ? (b.winner === 'draw' ? 'draw' : b.winner === youKey ? 'won' : 'lost') : null, retreated: b.retreated === youKey, theyRetreated: !!b.retreated && b.retreated !== youKey, attacking: youKey === 'att',
     enemy: s.factions[foe.fid]?.name, enemyColor: factionColor(s, foe.fid), enemyGeneral: foe.general, enemyGeneralText: GENERAL_TEXT[foe.general],
     sectors, cohorts, log: b.log.map((l) => l.text), events: (b.lastEvents || []).map((e) => ({ ...e, col: e.sector !== undefined ? toScreen(e.sector) : null, mine: e.side === youKey })),
     reserve: { count: you.reserve.length, used: you.reserveUsed, order: you.reserveOrder == null ? null : toScreen(you.reserveOrder) },
@@ -125,7 +132,29 @@ function battleView(s) {
     enemyCavalry: foe.cav.map((c) => ({ col: toScreen(c.pos) === 0 ? 'left' : 'right', men: Math.round(c.men / 50) * 50, beaten: c.beaten > 0 })),
     legate: { action: you.legate.action, target: you.legate.target == null ? 1 : toScreen(you.legate.target), ruseUsed: you.ruseUsed, rallyUsed: you.rallyUsed, gratia: s.factions.player.stats.gratia },
     fromScreen: [0, 1, 2].map(fromScreen),
+    present: you.present !== false, yourGeneral: you.present !== false ? null : ((s.factions.player.generals || []).find((g) => g.id === you.generalId)?.name || 'A senior tribune'),
+    yourGeneralText: GENERAL_TEXT[you.general] || STYLE_TEXT[you.general],
+    men: { mine: Math.round(sideMen(you)), theirs: Math.round(sideMen(foe) / 100) * 100 },
+    retreatCost: sectors.some((x) => x.dist === 0) ? Math.round(CONFIG.retreatLoss[0] * 100) : Math.round(CONFIG.retreatLoss[1] * 100),
   };
+}
+
+// What to do next, in one line, and which tab does it.
+function objectiveOf(s, P, act, armies) {
+  if (!P.alive) return null;
+  if (s.event) return { tab: null, text: `Answer: ${s.event.title}.` };
+  if (s.pending.length) return { tab: 'army', text: `An army of yours has met the enemy at ${PROV[s.pending[0].prov].name}. Decide what to do.` };
+  if (act === 1) {
+    const t = act1Targets(s);
+    if (P.approached === s.turn) return { tab: null, text: 'You have made this month\'s approach. End the month.' };
+    if (t.governorOpen) return { tab: 'army', text: `Only the governor stands between you and ${PROV[P.base].name}. Approach him (Army tab).` };
+    return { tab: 'army', text: `Win the legions of ${PROV[P.base].name}: ${Math.round((100 * t.menMine) / Math.max(1, t.menAll))}% of the men are yours; at 75% the governor is next. One approach a month (Army tab).` };
+  }
+  if (act === 2) return { tab: 'map', text: `Grow: ${ownedLegions(s, 'player').length} legions, ${ownedProvinces(s, 'player').length} province${ownedProvinces(s, 'player').length === 1 ? '' : 's'}. Tap a neighbour on the map to march or write. When ready, be hailed imperator (Army tab).` };
+  if (s.emperor === 'player') return { tab: 'rome', text: `Hold Rome: ${P.hold || 0} of ${s.diff.hold} months. Keep the crowd fed and plots watched (Rome tab).` };
+  if (s.prov.ROM.owner === 'player') return { tab: 'rome', text: 'You hold Rome. Clear enemy legions from Etruria and Campania and the Senate must recognise you.' };
+  const lead = armies.find((a) => a.leader);
+  return { tab: 'map', text: `March on Rome when you are strong enough${lead ? ` (your army: ${lead.power}k)` : ''}. ${act === 4 ? 'Only the four claimants remain.' : 'Act IV opens in July 69.'}` };
 }
 
 export function view(s) {
@@ -133,8 +162,7 @@ export function view(s) {
   const myLegs = ownedLegions(s, 'player');
   const myProvs = ownedProvinces(s, 'player');
   const A = P.leaderArmy && s.armies[P.leaderArmy];
-  const income = myProvs.reduce((a, q) => a + (q.breachUntil > s.turn ? 0 : PROV[q.id].rev * ({ light: 0.85, heavy: 1.4, extort: 1.8 }[q.tax] || 1) * (q.unrest > 60 ? 0.5 : 1)), 0) + (s.emperor === 'player' ? ownedProvinces(s, 'state').reduce((a, q) => a + PROV[q.id].rev * CONFIG.stateShare, 0) : 0);
-  const pay = P.ownsProvince ? myLegs.reduce((a, l) => a + l.men * CONFIG.payPerMan * l.payMult, 0) : 0;
+  const income = incomeOf(s, P), pay = payOf(s, P), upkeep = upkeepOf(s, P), balance = balanceOf(s, P);
 
   const provinces = PROVINCES.map((d) => {
     const q = s.prov[d.id];
@@ -146,7 +174,9 @@ export function view(s) {
       towns: q.towns.filter((t) => t.men > 0).length, frontier: d.frontier || null, threat: d.frontier ? Math.round(s.threat[d.frontier]) : null,
       breach: q.breachUntil > s.turn, mine,
       legions: legs.map((l) => ({ id: l.id, name: legionName(l), owner: l.owner, men: l.men })),
-      taxes: mine ? TAX_LEVELS.map((t) => ({ level: t, rev: k((d.rev * revenueMult(q) + revenueFlat(q)) * ({ light: 0.85, normal: 1, heavy: 1.4, extort: 1.8 }[t]) * (q.unrest > 60 ? 0.5 : 1)), unrest: { light: -5, normal: -3, heavy: 3, extort: 9 }[t] + unrestDelta(q) })) : null,
+      taxes: mine ? TAX_LEVELS.map((t) => ({ level: t, rev: k(provinceRevenue(s, q, t)), unrest: { light: -5, normal: -3, heavy: 3, extort: 9 }[t] + unrestDelta(q) })) : null,
+      chest: q.owner === 'state' ? chestOf(s, q) : 0,
+      worksUsed: (q.buildings || []).length + (q.building ? 1 : 0), canBuildAny: mine && Object.keys(BUILDINGS).some((id) => !canBuild(s, P, d.id, id)),
       canLevy: mine && !P.levy && d.tier !== 'proc' && q.unrest < 70 && P.treasury >= CONFIG.levyCost,
       canLetter: P.rebel && q.owner === 'state' && !legs.length && myProvs.some((m) => distance(m.id, d.id) <= 1),
       buildings: (q.buildings || []).map((id) => ({ id, name: BUILDINGS[id].name, latin: BUILDINGS[id].latin, does: BUILDINGS[id].does })),
@@ -178,8 +208,20 @@ export function view(s) {
   const pending = s.pending.map((pd) => {
     const army = s.armies[pd.army];
     if (!army) return null;
+    const yours = { men: army.legions.reduce((a, id) => a + s.legions[id].men, 0), legions: army.legions.length, commander: commanderOf(s, P, army).name };
+    if (pd.defence) {
+      const E = s.armies[pd.attacker];
+      if (!E || !E.legions.length) return null;
+      const ratio = armyPower(s, army) / Math.max(1, armyPower(s, E));
+      const men = E.legions.reduce((a, id) => a + s.legions[id].men, 0);
+      return { id: pd.id, prov: pd.prov, provName: PROV[pd.prov].name, army: pd.army, defence: true, yours,
+        enemy: { name: s.factions[E.owner].name, men, legions: E.legions.length, general: GENERAL_TEXT[generalOf(s.factions[E.owner])], odds: ratioBand(ratio), large: men + yours.men >= CONFIG.largeBattleMen },
+        retreatTo: PROV[nearestHeld(s, 'player', army.from && army.from !== army.loc ? army.from : army.loc, army.loc) || army.loc]?.name, rearguard: Math.round(CONFIG.rearguardLoss * 100), bodies: [] };
+    }
     const bodies = bodiesAt(s, 'player', pd.prov).sort((a, b) => (a.kind === 'army' ? 0 : a.kind === 'legion' ? 1 : 2) - (b.kind === 'army' ? 0 : b.kind === 'legion' ? 1 : 2));
-    return { id: pd.id, prov: pd.prov, provName: PROV[pd.prov].name, army: pd.army, power: k(armyPower(s, army) / 1000), bodies: bodies.map((b) => bodyView(s, P, army, b, { destination: pd.destination })) };
+    return { id: pd.id, prov: pd.prov, provName: PROV[pd.prov].name, army: pd.army, power: k(armyPower(s, army) / 1000), yours,
+      retreatTo: PROV[nearestHeld(s, 'player', army.from && army.from !== army.loc ? army.from : army.loc, army.loc) || army.from || army.loc]?.name,
+      bodies: bodies.map((b) => bodyView(s, P, army, b, { destination: pd.destination })) };
   }).filter(Boolean);
 
   let act1 = null;
@@ -203,12 +245,55 @@ export function view(s) {
   const legatesFar = Object.values(s.legions).filter((l) => !canSubvert(s, P, l) || canSubvert(s, P, l) === 'Not enough money').filter((l) => s.factions[l.owner].kind !== 'state' && l.owner !== 'player')
     .map((l) => ({ id: l.id, name: legionName(l), owner: s.factions[l.owner].name, loc: l.loc, loyalty: Math.round(l.loyalty), cost: k(subvertCost(s, P, l)), ok: !canSubvert(s, P, l) }));
 
+  const armies = Object.values(s.armies).filter((x) => x.owner === 'player' && x.legions.length).map((x) => {
+    const c = commanderOf(s, P, x);
+    return {
+      id: x.id, loc: x.loc, locName: PROV[x.loc].name, dest: x.dest && x.dest !== x.loc ? x.dest : null, destName: x.dest && x.dest !== x.loc ? PROV[x.dest].name : null, stages: x.path.length,
+      leader: x.id === P.leaderArmy, column: !!x.column, joining: x.column ? commanderOf(s, P, s.armies[x.column] || x).name : null,
+      commander: c.name, style: c.style, styleText: c.style ? STYLE_TEXT[c.style] : null, generalId: c.id || null,
+      men: x.legions.reduce((a, id) => a + s.legions[id].men, 0), power: k(armyPower(s, x) / 1000), over: x.legions.length > CONFIG.supplyLimit,
+      halted: s.pending.some((p) => p.army === x.id), waiting: (x.wait || 0) > 0,
+      legions: x.legions.map((id) => legionView(s, s.legions[id])),
+    };
+  }).sort((a, b) => (b.leader - a.leader) || (a.column - b.column) || b.men - a.men);
+  const garrisonsByProv = {};
+  for (const l of myLegs.filter((x) => !x.army)) (garrisonsByProv[l.loc] = garrisonsByProv[l.loc] || []).push(legionView(s, l));
+  const garrisons = Object.entries(garrisonsByProv).map(([pid, legs]) => ({ pid, name: PROV[pid].name, legions: legs, armiesHere: armies.filter((a) => a.loc === pid && !a.column).map((a) => a.id) }));
+  const generals = (P.generals || []).map((g) => { const A = armyOfGeneral(s, g.id); return { ...g, styleText: STYLE_TEXT[g.style], army: A ? A.id : null, armyAt: A ? PROV[A.loc].name : null }; });
+
+  const warnings = [];
+  for (const l of myLegs) {
+    if (l.debt > 0 && l.overdue) warnings.push({ kind: 'money', text: `${legionName(l)} is owed ${k(l.debt)}k past its day: loyalty falls every month until paid.` });
+    else if (l.debt > 0 && l.debtDue <= s.turn + 1 && P.treasury < l.debt) warnings.push({ kind: 'money', text: `${k(l.debt)}k is due to ${legionName(l)} ${l.debtDue <= s.turn ? 'now' : 'next month'}, and you have ${k(P.treasury)}k. Pay half to buy time.` });
+    if (l.loyalty < 30) warnings.push({ kind: 'men', text: `${legionName(l)} is close to mutiny (loyalty ${Math.round(l.loyalty)}).` });
+  }
+  if (P.ownsProvince && balance < 0 && P.treasury + balance * 3 < 0) warnings.push({ kind: 'money', text: `You lose ${k(-balance)}k a month: the treasury runs dry in ${Math.max(0, Math.floor(P.treasury / -balance))} month${Math.floor(P.treasury / -balance) === 1 ? '' : 's'}. Take richer provinces, raise taxes, or send legions home to their own provinces.` });
+  for (const q of myProvs) {
+    if (q.unrest > 60) warnings.push({ kind: 'land', text: `${PROV[q.id].name}: unrest ${Math.round(q.unrest)}. Revenue is halved above 60; above 85 it revolts.` });
+    const f = PROV[q.id].frontier;
+    if (f && s.threat[f] >= 70) warnings.push({ kind: 'land', text: `${PROV[q.id].name}: the frontier is under threat (${Math.round(s.threat[f])}). At 100 it breaks; legions there hold it.` });
+  }
+  for (const a of armies) if (a.over) warnings.push({ kind: 'men', text: `${a.leader ? 'Your army' : 'The army of ' + a.commander} has more than ${CONFIG.supplyLimit} legions: they go hungry and lose men.` });
+  if (!P.ownsProvince && P.suspicion >= 70) warnings.push({ kind: 'men', text: `Suspicion ${Math.round(P.suspicion)}: at 100 Rome recalls you.` });
+
+  const act = actOf(s);
+  const objective = objectiveOf(s, P, act, armies);
+  const news = s.report ? (() => {
+    const here = P.alive ? seat(s, P) : P.base;
+    return s.dispatches.map((d, i) => ({ d, i, arrive: d.t + (d.loc ? Math.ceil(distance(d.loc, here) / 2) : 0) }))
+      .filter(({ i, arrive }) => arrive <= s.turn && (i >= s.report.dispatchesAt || arrive === s.turn)).map(({ d }) => d.text).slice(-6);
+  })() : null;
+
   return {
-    turn: s.turn, month: monthName(s.turn), act: s.actIVOpen ? 4 : !P.ownsProvince ? 1 : !P.acclaimed ? 2 : 3,
+    turn: s.turn, month: monthName(s.turn), act,
+    story: s.story && s.story.length ? { ...s.story[0], left: s.story.length - 1 } : null,
+    event: eventView(s), storyLog: (s.storyLog || []).slice().reverse(),
+    report: s.report ? { ...s.report, month: monthName(s.report.turn), news, warnings } : null,
+    warnings, objective, myArmies: armies, garrisons, generals, maxGenerals: MAX_GENERALS,
     difficulty: s.opts.difficulty, outcome: s.outcome,
     player: {
       name: P.name, alive: P.alive, road: P.road, stats: P.stats, legit: Math.round(P.legit), treasury: k(P.treasury), borrowed: k(P.borrowed),
-      owed: k(debtTotal(s, 'player')), income: k(income), pay: k(pay), acclaimed: P.acclaimed, decree: !!P.decree, decreeCost: decreeCost(P),
+      owed: k(debtTotal(s, 'player')), income: k(income), pay: k(pay), upkeep: k(upkeep), interest: k(P.borrowed * CONFIG.interest), balance: k(balance), acclaimed: P.acclaimed, decree: !!P.decree, decreeCost: decreeCost(P),
       ownsProvince: P.ownsProvince, base: P.base, comrades: P.comrades, friends: P.friends || [],
       letters: lettersAllowed(P) - (P.letterTurn === s.turn ? P.lettersUsed : 0), envoys: (P.road === 'politics' ? 2 : 1) - (P.envoyTurn === s.turn ? P.envoys : 0),
       levy: P.levy ? { at: P.levy.at, done: monthName(P.levy.done) } : null, emperor: s.emperor === 'player',

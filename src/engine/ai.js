@@ -1,3 +1,5 @@
+import { addGeneral, mergeColumns } from './generals.js';
+import { legionPay } from './world.js';
 import { aiProvinces, levyCostMult, levyMonthsOff } from './buildings.js';
 import { CONFIG } from './config.js';
 import { ADJ, ITALY, PROV, distance, isWinter, route } from './graph.js';
@@ -19,7 +21,7 @@ export function factionTurn(s, F) {
   }
   // levy
   if (F.levy && F.levy.done <= s.turn) { levyLegion(s, F, F.levy.at, undefined); F.levy = null; }
-  const reserve = legs.reduce((a, l) => a + l.men * CONFIG.payPerMan * l.payMult, 0) * 2;
+  const reserve = legs.reduce((a, l) => a + legionPay(s, l), 0) * 2;
   const levyWant = F.road === 'military' ? 14 : 5;
   if (!F.levy && legs.length < levyWant && F.treasury > CONFIG.levyCost + reserve) {
     const at = provs.find((p) => ['legion', 'grain'].includes(PROV[p.id].tier) && p.unrest < 60) || provs.find((p) => PROV[p.id].tier !== 'proc' && p.unrest < 70);
@@ -49,6 +51,11 @@ export function factionTurn(s, F) {
 export function leaderArmyOf(s, F) {
   let A = F.leaderArmy && s.armies[F.leaderArmy];
   if (A && !A.legions.length) { delete s.armies[A.id]; A = null; F.leaderArmy = null; }
+  if (!A && F.kind === 'player' && s.opts.human) {
+    // you ride to your largest army and take command; its general stands aside
+    const best = Object.values(s.armies).filter((x) => x.owner === F.id && x.legions.length && !x.column).sort((a, b) => b.legions.length - a.legions.length)[0];
+    if (best) { best.general = null; F.leaderArmy = best.id; return best; }
+  }
   if (!A) {
     const legs = ownedLegions(s, F.id).filter((l) => !l.army);
     if (!legs.length) {
@@ -210,8 +217,11 @@ export function humanUpkeep(s, F) {
     }
     return;
   }
-  const A = leaderArmyOf(s, F);
-  if (A) gatherForces(s, F, A, null);
+  // no gathering: your legions go where you send them (generals.js)
+  if (!F.leaderArmy || !s.armies[F.leaderArmy]) leaderArmyOf(s, F);
+  // the province falls: one of your legates swears to you (saves from before generals get him too)
+  if (!F.generals) addGeneral(s, F, { id: 'G-first', how: 'when your province falls: a legate of one of your legions' });
+  mergeColumns(s, F.id);
 }
 
 export function hostileForAct1(s, b) { return b.prov.owner === 'state'; }

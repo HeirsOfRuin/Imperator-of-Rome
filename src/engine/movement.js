@@ -1,7 +1,9 @@
+import { mergeColumns } from './generals.js';
 import { CONFIG } from './config.js';
 import { harbourAt } from './buildings.js';
 import { ADJ, edgeCost, isWinter, route } from './graph.js';
-import { bodiesAt, cull, flipProvince, hostile } from './core.js';
+import { armyPower, bodiesAt, cull, flipProvince, hostile } from './core.js';
+import { FIGHT_RATIO } from './config.js';
 import { resolveEncounter } from './combat.js';
 
 export function movement(s) {
@@ -19,7 +21,7 @@ export function movement(s) {
     const over = A.legions.length - CONFIG.supplyLimit;
     if (over > 0) for (const id of A.legions) { const l = s.legions[id]; l.men = Math.round(l.men * (1 - Math.min(0.06, 0.01 * over))); }
     if (A.wait > 0) { A.wait--; continue; }
-    if (s.pending && s.pending.some((p) => p.army === A.id)) continue;
+    if (s.pending && s.pending.some((p) => p.army === A.id || p.attacker === A.id)) continue;
     if (!A.path.length) { engage(s, A, A.loc, true); continue; }
     if (A.edgeLeft <= 0) {
       const e = ADJ[A.loc].find((x) => x.to === A.path[0]);
@@ -38,6 +40,7 @@ export function movement(s) {
     if (res === 'halt') continue;
     if (res === 'blocked' && s.armies[A.id]) { A.loc = A.from; for (const id of A.legions) s.legions[id].loc = A.loc; A.path.unshift(A.dest ? A.path[0] || A.dest : A.loc); A.path = route(A.loc, A.dest, winter); }
   }
+  if (s.opts.human) mergeColumns(s, 'player');
   cull(s);
 }
 
@@ -56,6 +59,14 @@ export function engage(s, A, pid, destination) {
     }
     // the state does not attack peaceful governors' provinces on its own
     if (F.kind === 'state' && b.kind === 'aux') break;
+    // a rival army comes at yours: you see it coming and decide (fight or fall back)
+    if (s.opts.human && b.kind === 'army' && b.army.owner === 'player') {
+      const ratio = armyPower(s, A) / Math.max(1, armyPower(s, b.army));
+      const need = Math.min(1, FIGHT_RATIO[F.road] / Math.max(0.6, F.kind === 'player' ? 1 : s.diff.aiAggr));
+      if (ratio < need) return 'blocked';
+      if (!s.pending.some((p) => p.attacker === A.id)) s.pending.push({ id: s.nextId++, army: b.army.id, prov: pid, defence: true, attacker: A.id, turn: s.turn });
+      return 'halt';
+    }
     const res = resolveEncounter(s, F, A, b, { destination });
     if (res === 'battle') return 'halt';
     if (res === 'lost' || res === 'blocked') return res;

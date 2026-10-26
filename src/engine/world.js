@@ -1,28 +1,53 @@
 import { revenueMult, revenueFlat, grainBonus, threatMult, unrestDelta, has } from './buildings.js';
 import { FRONTIERS } from '../data/world.js';
+import { BUILDINGS } from '../data/buildings.js';
 import { CONFIG } from './config.js';
 import { PROV, distance, isWinter } from './graph.js';
 import { log, money, cull, debtTotal, hostile, killFaction, legionPower, newFaction, ownedLegions, ownedProvinces, takeLegion } from './core.js';
 import { fight } from './combat.js';
 import { hold } from './rome.js';
 
+export const TAX_MULT = { light: 0.85, normal: 1, heavy: 1.4, extort: 1.8 };
+// One province's revenue a month at a tax level (its current one by default).
+export function provinceRevenue(s, P, level) {
+  if (P.breachUntil > s.turn) return 0;
+  return (PROV[P.id].rev * revenueMult(P) + revenueFlat(P)) * TAX_MULT[level || P.tax || 'normal'] * (P.unrest > 60 ? 0.5 : 1);
+}
+export function incomeOf(s, F) {
+  let inc = 0;
+  for (const P of ownedProvinces(s, F.id)) inc += provinceRevenue(s, P);
+  if (s.emperor === F.id) for (const P of ownedProvinces(s, 'state')) inc += PROV[P.id].rev * CONFIG.stateShare;
+  return inc;
+}
+export function payOf(s, F) {
+  if (F.kind === 'player' && !F.ownsProvince) return 0;
+  return ownedLegions(s, F.id).reduce((a, l) => a + legionPay(s, l), 0);
+}
+
+export function upkeepOf(s, F) {
+  let u = 0;
+  for (const P of ownedProvinces(s, F.id)) for (const bid of P.buildings || []) u += BUILDINGS[bid].upkeep;
+  return u;
+}
+// What a month will do to the purse if nothing else happens.
+export function balanceOf(s, F) {
+  if (F.kind === 'player' && !F.ownsProvince) return CONFIG.legateSalary;
+  return incomeOf(s, F) - payOf(s, F) - upkeepOf(s, F) - F.borrowed * CONFIG.interest;
+}
+
 export function economy(s) {
   const winter = isWinter(s.turn);
   for (const F of Object.values(s.factions)) {
     if (!F.alive || F.kind === 'state') continue;
-    let inc = 0;
-    for (const P of ownedProvinces(s, F.id)) {
-      if (P.breachUntil > s.turn) continue;
-      const tax = P.tax === 'heavy' ? 1.4 : P.tax === 'extort' ? 1.8 : P.tax === 'light' ? 0.85 : 1;
-      inc += (PROV[P.id].rev * revenueMult(P) + revenueFlat(P)) * tax * (P.unrest > 60 ? 0.5 : 1);
-    }
-    if (s.emperor === F.id) for (const P of ownedProvinces(s, 'state')) inc += PROV[P.id].rev * CONFIG.stateShare;
-    money(s, F, inc, 'revenue');
-    // pay: before you hold a province, the state still pays your legion
+    money(s, F, incomeOf(s, F), 'revenue');
+    // pay: before you hold a province, the state still pays your legion, and
+    // you draw a legate's salary
     const legs = ownedLegions(s, F.id);
-    if (F.kind === 'player' && !F.ownsProvince) continue;
-    const pay = legs.reduce((a, l) => a + l.men * CONFIG.payPerMan * l.payMult, 0);
+    if (F.kind === 'player' && !F.ownsProvince) { money(s, F, CONFIG.legateSalary, "legate's salary"); continue; }
+    const pay = legs.reduce((a, l) => a + legionPay(s, l), 0);
     money(s, F, -pay, 'pay');
+    // legions living off their home province: cheaper, but the farmers notice
+    for (const P of ownedProvinces(s, F.id)) if (legs.filter((l) => atHome(s, l)).filter((l) => l.loc === P.id).length >= 2) P.unrest = Math.min(100, P.unrest + 1);
     money(s, F, -F.borrowed * CONFIG.interest, 'interest');
     // debts falling due
     for (const l of legs) {
@@ -55,6 +80,11 @@ export function economy(s) {
     if (s.romeUnrest > 90) E.legit -= 5;
   }
 }
+
+// A legion in its own province, held by its own side, lives partly off local
+// requisitions: grain, fodder and billets the province gives in kind.
+export function atHome(s, l) { return l.loc === l.station && s.prov[l.loc]?.owner === l.owner; }
+export function legionPay(s, l) { return l.men * CONFIG.payPerMan * l.payMult * (atHome(s, l) ? CONFIG.homePayMult : 1); }
 
 export function loyalty(s) {
   for (const l of Object.values(s.legions)) {

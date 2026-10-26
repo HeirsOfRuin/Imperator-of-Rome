@@ -1,3 +1,6 @@
+import { senateTurn, initSenate } from './senate.js';
+import { foreignTurn, initForeign } from './foreign.js';
+import { tradeTurn, initTrade } from './trade.js';
 import { buildingsTurn, governorsTurn } from './buildings.js';
 import { PROVINCES, LEGIONS, FRONTIERS, BACKGROUND } from '../data/world.js';
 const BACKGROUND_STAGES = BACKGROUND.map((b) => b.stage);
@@ -47,6 +50,7 @@ export function init(seed, opts) {
   mine.owner = 'player'; mine.loyalty = 60 + bg.stats.gratia * 3;
   if (opts.start === 'AFR') s.noMacer = true; // you are the legate Clodius Macer would have been
   initDiplomacy(s);
+  initSenate(s); initForeign(s); initTrade(s);
   // your background's enemies: men among the future claimants who remember you
   const enemyPool = ['galba', 'otho', 'vitellius', 'vespasian'];
   const er = streamFor(seed, 0, 'enemies');
@@ -67,7 +71,10 @@ export function step(s) {
   frontiers(s);
   raids(s);
   for (const F of Object.values(s.factions)) if (F.kind !== "state" && F.alive) factionTurn(s, F);
+  senateTurn(s);
+  foreignTurn(s);
   diplomacyTurn(s);
+  tradeTurn(s);
   if (!s.opts.human && s.factions.player.alive && s.factions.player.ownsProvince) botDiplomacy(s, s.factions.player);
   movement(s);
   mutinies(s);

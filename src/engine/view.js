@@ -1,3 +1,7 @@
+import { senateView, favour, isHostis } from './senate.js';
+import { peoplesView } from './foreign.js';
+import { goodsView, tradeIncome, partnersOf, agreementGains, tradeBetween } from './trade.js';
+import { GOODS, PERSONALITY, PRODUCES } from '../data/powers.js';
 // view(state): everything the screens show, computed here and only here.
 // The UI renders this object and calls act(); it does no arithmetic of its own.
 import { PROVINCES } from '../data/world.js';
@@ -10,11 +14,12 @@ import { commanderOf, STYLE_TEXT, armyOfGeneral, MAX_GENERALS } from './generals
 import { eventView } from './story.js';
 import { optionInfo, generalOf } from './combat.js';
 import { BUILDINGS, SLOTS, TRAITS, GAMES_COST } from '../data/buildings.js';
-import { canBuild, candidates, revenueMult, revenueFlat, unrestDelta, levyCostMult, levyMonthsOff } from './buildings.js';
+import { canBuild, candidates, revenueMult, revenueFlat, unrestDelta, levyCostMult, levyMonthsOff, levyCostFor, buildCost, gamesCost } from './buildings.js';
 import { CAPITALS } from '../data/seeds.js';
 import { ORDERS, orderBlocked, sectorState, frontOf, ROUNDS_DAY, ROUNDS_MAX } from './battle.js';
 import { act1Targets, bodyKey, lettersAllowed, TAX_LEVELS } from './actions.js';
-import { standing, treatyBetween, evaluate, seat, clientStatus, canSubvert, subvertCost, decreeCost } from './diplomacy.js';
+import { standing, treatyBetween, evaluate, seat, clientStatus, canSubvert, subvertCost } from './diplomacy.js';
+import { decreeCost } from './senate.js';
 
 const cap = (t) => t.charAt(0).toUpperCase() + t.slice(1);
 
@@ -175,19 +180,19 @@ export function view(s) {
       breach: q.breachUntil > s.turn, mine,
       legions: legs.map((l) => ({ id: l.id, name: legionName(l), owner: l.owner, men: l.men })),
       taxes: mine ? TAX_LEVELS.map((t) => ({ level: t, rev: k(provinceRevenue(s, q, t)), unrest: { light: -5, normal: -3, heavy: 3, extort: 9 }[t] + unrestDelta(q) })) : null,
-      chest: q.owner === 'state' ? chestOf(s, q) : 0,
+      chest: q.owner === 'state' ? chestOf(s, q) : 0, goods: (PRODUCES[d.id] || []).map((g) => GOODS[g].name),
       worksUsed: (q.buildings || []).length + (q.building ? 1 : 0), canBuildAny: mine && Object.keys(BUILDINGS).some((id) => !canBuild(s, P, d.id, id)),
-      canLevy: mine && !P.levy && d.tier !== 'proc' && q.unrest < 70 && P.treasury >= CONFIG.levyCost,
+      canLevy: mine && !P.levy && d.tier !== 'proc' && q.unrest < 70 && P.treasury >= levyCostFor(s, 'player', q),
       canLetter: P.rebel && q.owner === 'state' && !legs.length && myProvs.some((m) => distance(m.id, d.id) <= 1),
       buildings: (q.buildings || []).map((id) => ({ id, name: BUILDINGS[id].name, latin: BUILDINGS[id].latin, does: BUILDINGS[id].does })),
       building: q.building ? { id: q.building.id, name: BUILDINGS[q.building.id].name, done: monthName(q.building.done) } : null,
       slots: SLOTS[d.tier],
-      works: mine ? Object.entries(BUILDINGS).map(([id, B]) => ({ id, name: B.name, latin: B.latin, cost: B.cost, months: B.months, upkeep: B.upkeep, does: B.does, why: canBuild(s, P, d.id, id), built: (q.buildings || []).includes(id) })) : null,
+      works: mine ? Object.entries(BUILDINGS).map(([id, B]) => ({ id, name: B.name, latin: B.latin, cost: buildCost(s, 'player', id), months: B.months, upkeep: B.upkeep, does: B.does, why: canBuild(s, P, d.id, id), built: (q.buildings || []).includes(id) })) : null,
       governor: q.governor ? { name: q.governor.name, trait: q.governor.trait, does: TRAITS[q.governor.trait].does, friend: q.governor.friend || null } : null,
       candidates: mine ? candidates(s, d.id).map((c, i) => ({ index: i, name: c.name, trait: c.trait, does: TRAITS[c.trait].does, friend: c.friend || null })) : null,
       revMult: Math.round((revenueMult(q) - 1) * 100), revFlat: revenueFlat(q), unrestMod: unrestDelta(q),
-      gamesCost: GAMES_COST, games: q.gamesTurn === s.turn,
-      levyCost: k(CONFIG.levyCost * levyCostMult(q)), levyMonths: CONFIG.levyMonths - (d.id === 'AFR' ? 1 : 0) - levyMonthsOff(q),
+      gamesCost: gamesCost(s, 'player'), games: q.gamesTurn === s.turn,
+      levyCost: k(levyCostFor(s, 'player', q)), levyMonths: CONFIG.levyMonths - (d.id === 'AFR' ? 1 : 0) - levyMonthsOff(q),
     };
   });
 
@@ -201,6 +206,10 @@ export function view(s) {
       seat: f.alive ? seat(s, f) : null, distance: f.alive && P.alive ? distance(seat(s, P), seat(s, f)) : null,
       treaty: t ? { id: t.id, type: t.type, until: t.until, hostages: t.hostages } : null,
       truce: f.alive ? evaluate(s, f, P, 'truce') : null,
+      tradeEval: f.alive ? evaluate(s, f, P, 'trade') : null, trading: !!tradeBetween(s, 'player', f.id),
+      gains: f.alive ? (() => { const g = agreementGains(s, 'player', f.id); return { you: g.a.map((x) => GOODS[x].name), him: g.b.map((x) => GOODS[x].name) }; })() : null,
+      cedable: f.alive && s.peace && s.peace[['player', f.id].sort().join('|')] ? ownedProvinces(s, f.id).filter((q) => q.id !== f.base && q.id !== 'ROM' && !Object.values(s.legions).some((l) => l.loc === q.id && l.owner === f.id) && myProvs.some((m) => distance(m.id, q.id) <= 1)).map((q) => ({ id: q.id, name: PROV[q.id].name, eval: evaluate(s, f, P, 'cede', q.id) })) : [],
+      personality: PERSONALITY[f.id]?.text || null, favour: Math.round(favour(s, f.id)), hostis: isHostis(s, f.id),
       submission: f.alive ? evaluate(s, f, P, 'submission') : null,
     };
   });
@@ -289,11 +298,13 @@ export function view(s) {
     story: s.story && s.story.length ? { ...s.story[0], left: s.story.length - 1 } : null,
     event: eventView(s), storyLog: (s.storyLog || []).slice().reverse(),
     report: s.report ? { ...s.report, month: monthName(s.report.turn), news, warnings } : null,
+    senate: senateView(s, P), peoples: peoplesView(s, P), goods: goodsView(s, 'player'), tradeParts: (() => { const t = tradeIncome(s, 'player'); return { market: k(t.market), agreements: k(t.agreements), silk: k(t.silk), total: k(t.total) }; })(),
+    partners: partnersOf(s, 'player').map((x) => s.factions[x]?.name),
     warnings, objective, myArmies: armies, garrisons, generals, maxGenerals: MAX_GENERALS,
     difficulty: s.opts.difficulty, outcome: s.outcome,
     player: {
       name: P.name, alive: P.alive, road: P.road, stats: P.stats, legit: Math.round(P.legit), treasury: k(P.treasury), borrowed: k(P.borrowed),
-      owed: k(debtTotal(s, 'player')), income: k(income), pay: k(pay), upkeep: k(upkeep), interest: k(P.borrowed * CONFIG.interest), balance: k(balance), acclaimed: P.acclaimed, decree: !!P.decree, decreeCost: decreeCost(P),
+      owed: k(debtTotal(s, 'player')), income: k(income), trade: k(tradeIncome(s, 'player').total), pay: k(pay), upkeep: k(upkeep), interest: k(P.borrowed * CONFIG.interest), balance: k(balance), acclaimed: P.acclaimed, decree: !!P.decree, decreeCost: decreeCost(P),
       ownsProvince: P.ownsProvince, base: P.base, comrades: P.comrades, friends: P.friends || [],
       letters: lettersAllowed(P) - (P.letterTurn === s.turn ? P.lettersUsed : 0), envoys: (P.road === 'politics' ? 2 : 1) - (P.envoyTurn === s.turn ? P.envoys : 0),
       levy: P.levy ? { at: P.levy.at, done: monthName(P.levy.done) } : null, emperor: s.emperor === 'player',

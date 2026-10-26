@@ -1,10 +1,14 @@
+import { aiSenate, addFavour, isHostis } from './senate.js';
+import { agreementGains, makeTrade, tradeBetween } from './trade.js';
+import { GOODS, PERSONALITY } from '../data/powers.js';
+import { flipProvince } from './core.js';
 import { addGeneral, formArmy } from './generals.js';
 import { generalOf } from './combat.js';
 // Diplomacy (docs/FRAME-DIPLOMACY.md). One set of functions for every faction:
 // the player, the bot and the rivals propose, accept and break treaties the
 // same way, and every answer comes with its reasons in words.
 import { CLIENTS } from '../data/people.js';
-import { distance } from './graph.js';
+import { distance, PROV } from './graph.js';
 import { legionName, who, money, buyCost, hostile, log, newLegion, ownedLegions, ownedProvinces, strengthOf, takeLegion } from './core.js';
 
 const key = (a, b) => (a < b ? a + '|' + b : b + '|' + a);
@@ -72,7 +76,9 @@ export function evaluate(s, X, Y, type, target) {
   const xs = Math.max(1, strengthOf(s, X.id)), ys = Math.max(1, strengthOf(s, Y.id));
   const st = standing(s, X.id, Y.id);
   const third = otherThreat(s, X, Y);
-  let score = st / 100 + 0.04 * Y.stats.auct + (Y.road === 'politics' ? 0.1 : 0);
+  const pers = PERSONALITY[X.id] || {};
+  let score = st / 100 + 0.04 * Y.stats.auct + (Y.road === 'politics' ? 0.1 : 0) + (pers[type] || 0);
+  if (isHostis(s, Y.id) && type !== 'submission') { score -= 0.1; reasons.push('the Senate has outlawed you'); }
   if (st >= 30) reasons.push('they think well of you'); else if (st <= -30) reasons.push('they distrust you');
   if (type === 'truce') {
     score += 0.35 * Math.min(2, ys / xs) + 0.35 * Math.min(2, third / xs);
@@ -90,6 +96,26 @@ export function evaluate(s, X, Y, type, target) {
     score += 0.5 * Math.min(2, ts / xs) + (s.diff.leaderBias && ts >= Math.max(xs, ys) ? 0.25 : 0);
     if (ts > xs) reasons.push(`they fear ${T.name}`);
     return { ok: score >= 0.95, score, reasons };
+  }
+  if (type === 'trade') {
+    if (!s.peace[key(X.id, Y.id)]) return { ok: false, score: 0, reasons: ['trade needs peace first: a truce or an alliance'] };
+    const g = agreementGains(s, Y.id, X.id);
+    if (!g.b.length) return { ok: false, score: 0, reasons: ['you have nothing he lacks'] };
+    score += 0.35 + 0.12 * g.b.length - 0.04 * g.a.length;
+    reasons.push(`he would get ${g.b.map((x) => GOODS[x].name.toLowerCase()).join(', ')}`);
+    if (g.a.length > g.b.length) reasons.push('he sees you gain more than he does');
+    return { ok: score >= 0.6, score, reasons };
+  }
+  if (type === 'cede') {
+    const P = s.prov[target];
+    if (!s.peace[key(X.id, Y.id)]) return { ok: false, score: 0, reasons: ['only a partner at peace can be asked'] };
+    if (!P || P.owner !== X.id) return { ok: false, score: 0, reasons: ['not his province'] };
+    if (P.id === X.base || P.id === 'ROM') return { ok: false, score: 0, reasons: ['he will not give up his seat'] };
+    if (Object.values(s.legions).some((l) => l.loc === P.id && l.owner === X.id)) return { ok: false, score: 0, reasons: ['his legions stand there'] };
+    const ratio = xs / ys;
+    score += ratio < 0.3 ? 0.5 : ratio < 0.5 ? 0.15 : -0.6;
+    reasons.push(ratio < 0.3 ? 'he cannot refuse you' : ratio < 0.5 ? 'he fears you' : 'he is strong enough to say no');
+    return { ok: score >= 0.75, score, reasons };
   }
   if (type === 'submission') {
     if (!canSubmit(s, X)) return { ok: false, score: 0, reasons: ['he will not bend the knee before the last act'] };
@@ -146,18 +172,26 @@ export function submit(s, X, Y) {
 // waits for the player (human) or the bot.
 export function propose(s, Y, X, type, opts = {}) {
   if (!X.alive || !Y.alive || X.id === Y.id) return { ok: false, reasons: ['no one to treat with'] };
-  if (treatyBetween(s, X.id, Y.id) && type !== 'submission') return { ok: false, reasons: ['a treaty already stands'] };
+  if (treatyBetween(s, X.id, Y.id) && !['submission', 'trade', 'cede'].includes(type)) return { ok: false, reasons: ['a treaty already stands'] };
+  if (type === 'trade' && tradeBetween(s, X.id, Y.id)) return { ok: false, reasons: ['you already trade'] };
+  const gold = opts.gold || 0;
+  if (gold && Y.treasury < gold) return { ok: false, reasons: ['you have not got the gold'] };
   if (X.kind === 'player' && s.opts.human) {
     s.offers.push({ id: s.nextTreaty++, from: Y.id, type, target: opts.target || null, months: opts.months || 12, turn: s.turn });
     return { ok: null, reasons: ['sent'] };
   }
   const ev = X.kind === 'player' ? botAnswer(s, X, Y, type, opts) : evaluate(s, X, Y, type, opts.target);
-  if (opts.hostages) ev.score += 0.15;
-  const ok = opts.hostages ? ev.score >= (type === 'alliance' ? 0.95 : type === 'truce' ? 0.7 : 0.75) || ev.ok : ev.ok;
+  const bonus = (opts.hostages ? 0.15 : 0) + (gold ? (gold / 100) * 0.1 * ((PERSONALITY[X.id] || {}).giftMult ?? 1) : 0);
+  if (gold) ev.reasons.push(`your gold weighs ${bonus >= 0.2 ? 'heavily' : 'a little'}`);
+  const need = { alliance: 0.95, truce: 0.7, trade: 0.6, cede: 0.75 }[type] ?? 0.75;
+  const ok = bonus && ev.score > 0 ? ev.score + bonus >= need || ev.ok : ev.ok;
   if (ok) {
+    if (gold) money(s, Y, -gold, 'gold to ' + X.name);
     if (type === 'submission') submit(s, X, Y);
+    else if (type === 'trade') makeTrade(s, Y.id, X.id);
+    else if (type === 'cede') cede(s, X, Y, opts.target);
     else makeTreaty(s, Y.id, X.id, type, opts);
-  } else adjustStanding(s, X.id, Y.id, -3);
+  } else adjustStanding(s, X.id, Y.id, type === 'cede' ? -10 : -3);
   return { ok, reasons: ev.reasons };
 }
 
@@ -170,6 +204,7 @@ export function answerOffer(s, offerId, accept) {
   if (!Y.alive) return { error: 'He is dead' };
   if (!accept) { adjustStanding(s, P.id, Y.id, -5); return { ok: false }; }
   if (o.type === 'submission') submit(s, Y, P); // he offered to submit to you
+  else if (o.type === 'trade') { if (!s.peace[key(Y.id, P.id)]) return { error: 'The peace has ended' }; makeTrade(s, Y.id, P.id); }
   else makeTreaty(s, Y.id, P.id, o.type, { target: o.target, months: o.months });
   return { ok: true };
 }
@@ -181,6 +216,7 @@ export function breakTreaty(s, F, treatyId) {
   s.treaties = s.treaties.filter((x) => x !== t);
   rebuildPeace(s);
   F.legit = Math.max(0, F.legit - (t.hostages ? 15 : 6));
+  addFavour(s, F.id, -4);
   adjustStanding(s, F.id, other, -50);
   for (const Z of rivalsOf(s, F)) if (Z.id !== other) adjustStanding(s, F.id, Z.id, -10);
   log(s, `${F.id} breaks ${t.type} with ${other}`, null, `${who(s, F.id)} ${F.kind === 'player' ? 'break' : 'breaks'} the ${t.type} with ${who(s, other).replace('You', 'you')}.`);
@@ -190,8 +226,15 @@ export function breakTreaty(s, F, treatyId) {
 export function giveGift(s, F, X, amount) {
   if (F.treasury < amount) return { error: 'Not enough money' };
   money(s, F, -amount, 'gift to ' + X.name);
-  adjustStanding(s, F.id, X.id, (amount / 10) * (1 + 0.1 * F.stats.opes) * (F.road === 'charisma' ? 1.3 : 1));
+  adjustStanding(s, F.id, X.id, (amount / 10) * (1 + 0.1 * F.stats.opes) * (F.road === 'charisma' ? 1.3 : 1) * ((PERSONALITY[X.id] || {}).giftMult ?? 1));
   return { ok: true };
+}
+
+// X gives province pid to Y, at peace, under pressure.
+export function cede(s, X, Y, pid) {
+  flipProvince(s, s.prov[pid], Y.id, true);
+  adjustStanding(s, X.id, Y.id, -20);
+  log(s, `${X.id} cedes ${pid} to ${Y.id}`, pid, `${X.name} gives up ${PROV[pid].name} to ${who(s, Y.id).replace('You', 'you')} rather than fight.`);
 }
 
 // Turn a rival's legion that is far from its general.
@@ -243,18 +286,6 @@ export function askClient(s, F, cid) {
   return { ok: true };
 }
 
-// The Senate names you legate of the Senate and People (as Galba styled himself).
-export function decreeCost(F) { return F.road === 'politics' ? 120 : 200; }
-export function senateDecree(s, F) {
-  if (F.decree) return { error: 'Already granted' };
-  if (!F.acclaimed) return { error: 'You must be proclaimed first' };
-  if (F.legit < 30) return { error: 'The Senate will not risk it: legitimacy under 30' };
-  if (F.treasury < decreeCost(F)) return { error: 'Not enough money' };
-  money(s, F, -decreeCost(F), "the Senate's decree");
-  F.decree = true; F.legit = Math.min(100, F.legit + 8);
-  return { ok: true };
-}
-
 // Monthly: treaties expire; AI factions make proposals by the same rules.
 export function diplomacyTurn(s) {
   if (s.opts.noDiplomacy) return;
@@ -283,6 +314,14 @@ export function diplomacyTurn(s) {
       else if (other) propose(s, F, other, 'truce', { months: 6 });
       else if (big.kind !== 'player' || r.chance(0.5)) propose(s, F, big, 'truce', { months: 6 });
     }
+    // partners at peace trade, if both gain
+    if (!(s.opts.noTrade)) for (const Z of rivalsOf(s, F)) {
+      if (!s.peace[key(F.id, Z.id)] || tradeBetween(s, F.id, Z.id) || !r.chance(0.3)) continue;
+      if (!agreementGains(s, F.id, Z.id).a.length) continue;
+      if (Z.kind === 'player' && s.opts.human) s.offers.push({ id: s.nextTreaty++, from: F.id, type: 'trade', turn: s.turn });
+      else propose(s, F, Z, 'trade');
+      break;
+    }
     // clients for whoever can reach them
     for (const c of CLIENTS) if (!c.mustHold && !clientStatus(s, F, c) && F.treasury > c.cost * 2 && r.chance(0.3)) askClient(s, F, c.id);
   }
@@ -296,6 +335,7 @@ function offerSubmission(s, F, P) {
 
 // The bot's answers to offers made to it
 function botAnswer(s, P, Y, type) {
+  if (type === 'trade') return { ok: !!s.peace[key(P.id, Y.id)], score: 1, reasons: [] };
   if (type === 'truce') { const ok = strengthOf(s, Y.id) >= strengthOf(s, P.id) * 0.8; return { ok, score: ok ? 1 : 0, reasons: [] }; }
   if (type === 'alliance') return { ok: true, score: 1, reasons: [] };
   return { ok: false, score: 0, reasons: [] };
@@ -306,7 +346,7 @@ function botAnswer(s, P, Y, type) {
 export function botDiplomacy(s, P) {
   if (s.opts.noDiplomacy || s.opts.noPlayerDiplomacy) return;
   const off = s.opts.dipOff || [];
-  if (!off.includes('decree') && P.acclaimed && !P.decree && P.legit >= 30 && P.treasury > decreeCost(P) + 200) senateDecree(s, P);
+  if (!off.includes('decree') && !s.opts.noPlayerSenate) aiSenate(s, P);
   if (!off.includes('clients')) for (const c of CLIENTS) if (!clientStatus(s, P, c) && P.treasury > c.cost + 200 && (!c.legit || P.road === 'military')) askClient(s, P, c.id);
   const near = rivalsOf(s, P).filter((Z) => hostile(s, P.id, Z.id) && distance(seat(s, P), seat(s, Z)) <= 3 && Z.kind !== 'barbarian');
   if (!near.length) return;

@@ -1,3 +1,5 @@
+import { tradeIncome, loyaltyGood } from './trade.js';
+import { threatGrowthMult } from './foreign.js';
 import { revenueMult, revenueFlat, grainBonus, threatMult, unrestDelta, has } from './buildings.js';
 import { FRONTIERS } from '../data/world.js';
 import { BUILDINGS } from '../data/buildings.js';
@@ -32,7 +34,7 @@ export function upkeepOf(s, F) {
 // What a month will do to the purse if nothing else happens.
 export function balanceOf(s, F) {
   if (F.kind === 'player' && !F.ownsProvince) return CONFIG.legateSalary;
-  return incomeOf(s, F) - payOf(s, F) - upkeepOf(s, F) - F.borrowed * CONFIG.interest;
+  return incomeOf(s, F) + tradeIncome(s, F.id).total - payOf(s, F) - upkeepOf(s, F) - F.borrowed * CONFIG.interest;
 }
 
 export function economy(s) {
@@ -40,6 +42,9 @@ export function economy(s) {
   for (const F of Object.values(s.factions)) {
     if (!F.alive || F.kind === 'state') continue;
     money(s, F, incomeOf(s, F), 'revenue');
+    const tr = tradeIncome(s, F.id).total;
+    if (tr) money(s, F, tr, 'trade');
+    if (F.kind === 'player') { s.stats.tradeIncome = (s.stats.tradeIncome || 0) + tr; s.stats.taxIncome = (s.stats.taxIncome || 0) + incomeOf(s, F); }
     // pay: before you hold a province, the state still pays your legion, and
     // you draw a legate's salary
     const legs = ownedLegions(s, F.id);
@@ -107,6 +112,7 @@ export function loyalty(s) {
     if (!l.army && has(s.prov[l.loc], 'castra') && s.prov[l.loc].owner === l.owner) d += 1;
     if (l.bought) d -= 0.7; // bought men stay bought only while the money lasts
     if (F.legit > 60) d += 0.5;
+    d += loyaltyGood(s, F.id);
     l.loyalty = Math.max(0, Math.min(100, l.loyalty + d));
   }
 }
@@ -162,7 +168,7 @@ export function frontiers(s) {
   for (const [k, f] of Object.entries(FRONTIERS)) {
     const present = Object.values(s.legions).filter((l) => f.provinces.includes(l.loc)).length;
     const deficit = Math.max(0, f.normal - present) / f.normal;
-    s.threat[k] += f.base * (0.3 + 2.5 * deficit) * s.diff.frontierMult * threatMult(s, f.provinces) - (deficit === 0 ? 4 : 0);
+    s.threat[k] += f.base * (0.3 + 2.5 * deficit) * s.diff.frontierMult * threatMult(s, f.provinces) * threatGrowthMult(s, k) - (deficit === 0 ? 4 : 0);
     s.threat[k] = Math.max(0, Math.min(120, s.threat[k]));
     if (s.threat[k] >= 100) {
       s.threat[k] = 40;

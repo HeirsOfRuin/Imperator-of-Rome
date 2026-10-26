@@ -1,3 +1,5 @@
+import { cavalryGoodMult, smallFightGoodMult } from './trade.js';
+import { addFavour } from './senate.js';
 import { generalById, generalDies } from './generals.js';
 import { legionPay } from './world.js';
 import { CONFIG, FIGHT_RATIO, NEG_THRESHOLD, ROAD_PREFS } from './config.js';
@@ -200,8 +202,8 @@ export function fight(s, F, A, b, ctx) {
     if (isPlayer && s.opts.human && s.battle) return 'blocked';
     return fieldBattle(s, F, A, b.army, isPlayer);
   }
-  const pa = (A ? armyPower(s, A) : ctx.power) * r.float(0.85, 1.15);
-  const pd = bodyPower(s, b) * r.float(0.85, 1.15);
+  const pa = (A ? armyPower(s, A) : ctx.power) * r.float(0.85, 1.15) * smallFightGoodMult(s, F.id);
+  const pd = bodyPower(s, b) * r.float(0.85, 1.15) * smallFightGoodMult(s, D.id);
   const attWins = pa > pd;
   if (isPlayer || large) log(s, `${large ? 'BATTLE' : 'fight'} ${F.id}(${Math.round(pa)}) vs ${D.id} ${b.kind}(${Math.round(pd)}) at ${A ? A.loc : 'camp'} -> ${attWins ? F.id : D.id}`, A ? A.loc : null,
     large ? `Battle at ${PROV[A.loc].name}: ${who(s, attWins ? F.id : D.id)} ${attWins ? (F.kind === 'player' ? 'win' : 'wins') : (D.kind === 'player' ? 'win' : 'wins')} against ${who(s, attWins ? D.id : F.id).replace('You', 'you')}.`
@@ -247,6 +249,7 @@ export function fight(s, F, A, b, ctx) {
       money(s, F, 40 + b.town.base * 0.05, "plunder");
       for (const l of attLegs) if (s.legions[l.id]) l.loyalty = Math.min(100, l.loyalty + 3);
       F.legit = Math.max(0, F.legit - 1);
+      addFavour(s, F.id, -2);
       b.prov.unrest = Math.min(100, b.prov.unrest + 20);
     } else if (b.kind === 'raid') {
       b.raid.men = 0;
@@ -306,7 +309,7 @@ function sideSpec(s, F, A, edge) {
   return {
     fid: F.id, armyId: A.id, general: g ? g.style : generalOf(F), generalId: g ? g.id : null, present: F.kind !== 'player' || A.id === F.leaderArmy,
     virtus: g ? g.skill : F.stats.virtus, gratia: F.stats.gratia, comrades: F.comrades || null, edge,
-    cavalryMult: F.road === 'military' ? 1.3 : 1,
+    cavalryMult: (F.road === 'military' ? 1.3 : 1) * cavalryGoodMult(s, F.id),
     legions: A.legions.map((id) => s.legions[id]).filter(Boolean).map((l) => ({ id: l.id, men: l.men, exp: l.exp, loyalty: l.loyalty, group: l.group, client: l.client || null })),
   };
 }

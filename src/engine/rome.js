@@ -1,3 +1,4 @@
+import { addFavour, initSenate, isHostis, plotMult, recognitionLegit } from './senate.js';
 import { GROUP_OF_PROVINCE } from '../data/world.js';
 import { CONFIG, ROAD_STAT } from './config.js';
 import { ITALY, distance } from './graph.js';
@@ -10,10 +11,16 @@ export function rome(s) {
   const O = s.factions[owner];
   const italyHostile = Object.values(s.legions).some((l) => ['ROM', 'ETR', 'CMP'].includes(l.loc) && hostile(s, owner, l.owner) && l.owner !== 'state');
   const terror = O && Object.values(s.legions).filter((l) => ITALY.includes(l.loc) && l.owner === owner).length >= 5;
-  if (O && O.kind !== 'state' && O.acclaimed && !italyHostile && (O.legit >= 25 || terror) && s.emperor !== owner) {
+  // the Senate under your swords revokes its decree; it votes you nothing until next month
+  if (O && O.kind !== 'state' && isHostis(s, owner) && !italyHostile) {
+    initSenate(s).hostis[owner] = s.turn;
+    log(s, `hostis lifted ${owner}`, 'ROM', owner === 'player' ? 'With your legions in the city, the Senate finds that you were never a public enemy after all.' : `The Senate revokes its decree against ${O.name}, whose legions are in the city.`);
+  }
+  if (O && O.kind !== 'state' && O.acclaimed && !italyHostile && !isHostis(s, owner) && (O.legit >= recognitionLegit(s, O) || terror) && s.emperor !== owner) {
     s.emperor = owner;
+    if (O.legit < recognitionLegit(s, O)) addFavour(s, owner, -20); // a frightened Senate remembers
     log(s, `EMPEROR ${owner}`, 'ROM', owner === 'player' ? 'The Senate meets and votes you the powers of the emperor. The clock of your reign begins.' : `The Senate recognises ${O.name} as emperor.`);
-    O.legit = Math.min(100, O.legit + (O.legit >= 25 ? 15 : 5)); // a frightened Senate gives less
+    O.legit = Math.min(100, O.legit + (O.legit >= recognitionLegit(s, O) ? 15 : 5)); // a frightened Senate gives less
     for (const l of ownedLegions(s, owner)) {
       l.debt += l.id === 'PRAET' ? s.diff.praetorianDonative : CONFIG.donativePerLegion;
       l.debtDue = s.turn + s.diff.dueOnVictory;
@@ -51,12 +58,12 @@ export function hold(s) {
   // spending: the dole and the Senate (a human spends by choice: actions.js)
   if (!(E.kind === 'player' && s.opts.human)) {
   if (s.romeUnrest > 40 && E.treasury > 400) { money(s, E, -150, 'grain dole'); s.romeUnrest = Math.max(0, s.romeUnrest - 15); }
-  if (E.road === 'wealth' && E.legit < 50 && E.treasury > 600) { money(s, E, -200, 'senators'); E.legit += 4; }
+  if (E.road === 'wealth' && E.legit < 50 && E.treasury > 600) { money(s, E, -200, 'senators'); E.legit += 4; addFavour(s, E.id, 10); }
   if (E.road === 'politics' && E.legit < 70 && E.treasury > 300) { money(s, E, -80, 'consulships'); E.legit += 2; } // consulships for friends
   if (E.road === 'charisma' && E.legit < 60 && E.treasury > 250) { money(s, E, -100, 'games'); E.legit += 2; s.romeUnrest = Math.max(0, s.romeUnrest - 10); } // games and largesse
   }
   // conspiracy
-  const plot = Math.max(0, (40 - E.legit) / 120 + s.romeUnrest / 500) * s.diff.plotMult * Math.max(0.6, 1 - 0.05 * italyLegs) * (1 - 0.05 * E.stats[ROAD_STAT[E.road]]);
+  const plot = Math.max(0, (40 - E.legit) / 120 + s.romeUnrest / 500) * s.diff.plotMult * Math.max(0.6, 1 - 0.05 * italyLegs) * (1 - 0.05 * E.stats[ROAD_STAT[E.road]]) * (s.opts.noSenate ? 1 : plotMult(s, E.id));
   E.whispers = plot;
   const best = E.stats[ROAD_STAT[E.road]];
   if (E.plot && E.plot.strikes <= s.turn) {

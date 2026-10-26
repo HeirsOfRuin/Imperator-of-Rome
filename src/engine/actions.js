@@ -1,4 +1,7 @@
-import { build, appoint, holdGames, levyCostMult, levyMonthsOff } from './buildings.js';
+import { gamesGoodMult } from './trade.js';
+import { addFavour, motion, courtSenate } from './senate.js';
+import { dealWith } from './foreign.js';
+import { build, appoint, holdGames, levyCostFor, levyMonthsOff } from './buildings.js';
 // Everything a human player can do. The UI calls act(state, action) and reads
 // view(state); it computes nothing itself. Each action checks what the screen
 // should already have checked, and returns { ok } or { error } in words.
@@ -12,7 +15,7 @@ import { leaderArmyOf, acclaim } from './ai.js';
 import { assignGeneral, detach, disband, formArmy, joinArmy, splitArmy } from './generals.js';
 import { chooseEvent } from './story.js';
 import { buildReport, snapshot } from './report.js';
-import { propose, answerOffer, breakTreaty, giveGift, subvert, askClient, senateDecree } from './diplomacy.js';
+import { propose, answerOffer, breakTreaty, giveGift, subvert, askClient } from './diplomacy.js';
 import { step } from './turn.js';
 
 export const TAX_LEVELS = ['light', 'normal', 'heavy', 'extort'];
@@ -35,7 +38,8 @@ export function act1Targets(s) {
   const others = Object.values(s.legions).filter((l) => l.loc === here && l.owner !== 'player' && !l.army);
   const menMine = mine.reduce((a, l) => a + l.men, 0), menAll = menMine + others.reduce((a, l) => a + l.men, 0);
   const out = others.filter((l) => !(l.standAside.player > s.turn)).map((l) => ({ kind: 'legion', legion: l }));
-  const governorOpen = menMine / Math.max(1, menAll) >= 0.74 || !others.length;
+  // legions standing aside will not defend the governor either
+  const governorOpen = menMine / Math.max(1, menAll) >= 0.74 || !out.length;
   // the last obstacle: whoever holds the province (the Senate's governor, or a usurper who took it)
   if (governorOpen && s.prov[here].owner !== 'player') out.push({ kind: 'aux', prov: s.prov[here] });
   return { bodies: out, mine, menMine, menAll, governorOpen, power: mine.reduce((a, l) => a + legionPower(s, l), 0) };
@@ -64,9 +68,8 @@ export function act(s, a) {
       if (F.levy) return { error: 'A legion is already being raised' };
       if (PROV[a.pid].tier === 'proc') return { error: 'Too few citizens here to raise a legion' };
       if (P.unrest >= 70) return { error: 'The province is too unruly to recruit' };
-      if (F.treasury < CONFIG.levyCost) return { error: 'Not enough money' };
-      if (F.treasury < CONFIG.levyCost * levyCostMult(P)) return { error: 'Not enough money' };
-      money(s, F, -CONFIG.levyCost * levyCostMult(P), 'levy');
+      if (F.treasury < levyCostFor(s, F.id, P)) return { error: 'Not enough money' };
+      money(s, F, -levyCostFor(s, F.id, P), 'levy');
       F.levy = { at: a.pid, done: s.turn + CONFIG.levyMonths - (a.pid === 'AFR' ? 1 : 0) - levyMonthsOff(P) };
       return { ok: true };
     }
@@ -188,17 +191,20 @@ export function act(s, a) {
       if (F.envoyTurn === s.turn && F.envoys >= (F.road === 'politics' ? 2 : 1)) return { error: 'Your envoys are all on the road' };
       F.envoys = (F.envoyTurn === s.turn ? F.envoys : 0) + 1; F.envoyTurn = s.turn;
       if (a.hostages && !F.acclaimed) return { error: 'Only a proclaimed claimant gives hostages' };
-      return propose(s, F, X, a.kind, { target: a.target, months: a.months || 12, hostages: a.hostages });
+      return propose(s, F, X, a.kind, { target: a.target, months: a.months || 12, hostages: a.hostages, gold: a.gold || 0 });
     }
     case 'answer': return answerOffer(s, a.offerId, a.accept);
     case 'breakTreaty': return breakTreaty(s, F, a.treatyId);
     case 'gift': { const X = s.factions[a.to] || { id: a.to, name: a.to }; return giveGift(s, F, X, a.amount); }
     case 'subvert': { const l = s.legions[a.legionId]; if (!l) return { error: 'No such legion' }; return subvert(s, F, l); }
     case 'client': return askClient(s, F, a.client);
-    case 'decree': return senateDecree(s, F);
+    case 'decree': return motion(s, F, 'decree');
+    case 'motion': return motion(s, F, a.motion, a.target);
+    case 'court': return courtSenate(s, F);
+    case 'people': return dealWith(s, F, a.people, a.what);
     case 'rome': {
       if (s.emperor !== 'player') return { error: 'Only the emperor spends in Rome' };
-      const costs = { dole: 150, senators: 200, consulships: 80, games: 100, informers: 120 };
+      const costs = { dole: 150, senators: 200, consulships: 80, games: Math.round(100 * gamesGoodMult(s, F.id)), informers: 120 };
       const c = costs[a.spend];
       if (!c) return { error: 'Unknown' };
       if (F.spentRome === s.turn + ':' + a.spend) return { error: 'Already done this month' };
@@ -206,7 +212,7 @@ export function act(s, a) {
       money(s, F, -c, a.spend);
       F.spentRome = s.turn + ':' + a.spend;
       if (a.spend === 'dole') s.romeUnrest = Math.max(0, s.romeUnrest - 15);
-      if (a.spend === 'senators') F.legit = Math.min(100, F.legit + 4);
+      if (a.spend === 'senators') { F.legit = Math.min(100, F.legit + 4); addFavour(s, F.id, 10); }
       if (a.spend === 'consulships') F.legit = Math.min(100, F.legit + 2);
       if (a.spend === 'games') { F.legit = Math.min(100, F.legit + 2); s.romeUnrest = Math.max(0, s.romeUnrest - 10); }
       if (a.spend === 'informers') F.informers = s.turn + 1; // they work through the coming month, when a warned plot would strike

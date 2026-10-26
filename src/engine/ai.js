@@ -1,6 +1,6 @@
 import { addGeneral, mergeColumns } from './generals.js';
 import { legionPay } from './world.js';
-import { aiProvinces, levyCostMult, levyMonthsOff } from './buildings.js';
+import { aiProvinces, levyCostFor, levyMonthsOff } from './buildings.js';
 import { CONFIG } from './config.js';
 import { ADJ, ITALY, PROV, distance, isWinter, route } from './graph.js';
 import { who, money, armyPower, flipProvince, hostile, killFaction, legionPower, levyLegion, log, makeArmy, ownedLegions, ownedProvinces, setDest, strengthOf, strongestFaction } from './core.js';
@@ -25,7 +25,7 @@ export function factionTurn(s, F) {
   const levyWant = F.road === 'military' ? 14 : 5;
   if (!F.levy && legs.length < levyWant && F.treasury > CONFIG.levyCost + reserve) {
     const at = provs.find((p) => ['legion', 'grain'].includes(PROV[p.id].tier) && p.unrest < 60) || provs.find((p) => PROV[p.id].tier !== 'proc' && p.unrest < 70);
-    if (at) { money(s, F, -CONFIG.levyCost * levyCostMult(at), 'levy'); F.levy = { at: at.id, done: s.turn + CONFIG.levyMonths - (F.road === 'military' ? 1 : 0) - (at.id === 'AFR' ? 1 : 0) - levyMonthsOff(at) }; }
+    if (at) { money(s, F, -levyCostFor(s, F.id, at), 'levy'); F.levy = { at: at.id, done: s.turn + CONFIG.levyMonths - (F.road === 'military' ? 1 : 0) - (at.id === 'AFR' ? 1 : 0) - levyMonthsOff(at) }; }
   }
   // pay overdue debts if possible (stingy never does)
   if (!F.stingy) for (const l of legs) if (l.overdue && l.debt > 0 && F.treasury - l.debt > reserve / 2) { money(s, F, -l.debt, 'promise paid: ' + l.id); l.debt = 0; l.overdue = false; l.loyalty += 4; }
@@ -167,7 +167,7 @@ export function playerStrategy(s, F) {
     if (menMine / menAll >= 0.74 || !others.length) b = { kind: 'aux', prov: s.prov[here] };
     else {
       const o = others.filter((l) => !(l.standAside.player > s.turn)).sort((a, c) => a.loyalty - c.loyalty)[0];
-      if (o) b = { kind: 'legion', legion: o };
+      b = o ? { kind: 'legion', legion: o } : { kind: 'aux', prov: s.prov[here] }; // those standing aside will not defend the governor
     }
     if (!b && others.length === 0 && s.prov[here].owner !== F.id) b = { kind: 'aux', prov: s.prov[here] };
     if (b && (b.kind !== 'aux' || s.prov[here].owner !== F.id)) {

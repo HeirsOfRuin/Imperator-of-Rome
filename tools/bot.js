@@ -62,8 +62,14 @@ function month(s) {
     for (const q of lettersTo) if (view(s).player.treasury > 50) must(s, { type: 'letter', pid: q.id }, 'letter');
     const lev = v2.provinces.find((q) => q.canLevy && ['legion', 'grain'].includes(q.tier));
     if (lev && view(s).player.treasury > 900 && v2.legions.length < 8) must(s, { type: 'levy', pid: lev.id }, 'levy');
-    if (v2.player.decree === false && v2.player.acclaimed && v2.player.legit >= 30 && v2.player.treasury > v2.player.decreeCost + 300) act(s, { type: 'decree' });
     if (v2.rome && v2.rome.youRule) { if (v2.rome.unrest > 40) act(s, { type: 'rome', spend: 'dole' }); if (v2.rome.whispers > 5) act(s, { type: 'rome', spend: 'informers' }); if (v2.player.legit < 40) act(s, { type: 'rome', spend: 'consulships' }); }
+    // the Senate, the frontiers, trade: whatever the screens offer and the purse allows
+    const S = v2.senate;
+    const m = S.motions.find((x) => !x.why && (x.id !== 'exiles' || v2.player.treasury > 500));
+    if (m) must(s, { type: 'motion', motion: m.id }, 'motion');
+    if (!S.courted && S.favour < 40 && view(s).player.treasury > 500) must(s, { type: 'court' }, 'court');
+    for (const q of v2.peoples) if (!q.why.subsidy && q.threat >= 70 && view(s).player.treasury > q.subsidy * 3) must(s, { type: 'people', people: q.id, what: 'subsidy' }, 'subsidy');
+    for (const f of v2.factions) if (f.alive && f.treaty && !f.trading && f.tradeEval && f.tradeEval.ok && view(s).player.envoys > 0) act(s, { type: 'propose', to: f.id, kind: 'trade' });
     // legions left behind join the army you lead (one stays on a threatened frontier)
     const lead = v2.myArmies.find((a) => a.leader);
     if (lead) for (const g of v2.garrisons) for (const l of g.legions.slice(v2.provinces.find((q) => q.id === g.pid)?.threat >= 60 ? 1 : 0)) must(s, { type: 'joinArmy', legionId: l.id, armyId: lead.id }, 'join');

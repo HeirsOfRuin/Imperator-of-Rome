@@ -440,3 +440,62 @@ on Legate (1.8%). The interface bot plays to the end without crashing but
 rarely wins: it is a stall and crash test, not a player. The events are
 untuned: none is large enough to swing a campaign, which is deliberate until
 the author has played them.
+
+## 16. Depth: the Senate, the frontiers, trade, rivals, story (2026-10-26)
+
+The plan is `docs/FRAME-DEPTH.md`. Every system below plays by the same rules
+for the rivals, and `tools/measure-depth.js` plays the same campaigns with
+each one switched off.
+
+**The Senate** (senate.js). Favour 0–100 per claimant, drifting toward
+15 + 0.6 × legitimacy (+10 emperor, +5 decree, −25 public enemy), 8% a month.
+Court the senators (80k, +8, once a month). One motion a month: the decree
+(legate of the Senate and People, legitimacy +8); proconsular imperium
+(recognition at legitimacy 15 instead of 25); thanksgiving after a pitched
+battle won (legitimacy +5); the treasury of Saturn (+300k, favour −15, every
+six months, only holding Rome); restoring Nero's exiles (100k, favour +12,
+once); declaring a rival a public enemy (holding Rome or the throne, favour 60
+and 15 above his: his legitimacy −12, legions −6 loyalty and −0.5 a month,
+unrest +8, no recognition for a year). Taking Rome lifts the decree against
+you, a month late. An AI emperor with favour 55 outlaws his strongest
+disliked rival (25% a month, once each). Favour moves the hold: plots ×0.8 at
+60 or more, ×1.3 under 25. Plunder −2, broken treaty −4, recognition by
+terror −20, a discovered incitement −10.
+
+**Frontier peoples** (foreign.js). Brigantes, Batavians, Dacians and
+Sarmatians, Parthia, Garamantes, each on one frontier's threat. Subsidy (60–150k):
+six months at 35% of the threat's rise; needs a province on that frontier.
+Incite (90–220k): threat +30 and ×1.8 for four months; a rebel within two
+provinces; 35% found out (legitimacy −6, favour −10, the holders' standing
+−30). Parthian friendship (220k, for whoever holds Syria): the East's threat
+rises at 30%, luxuries, and the silk road (+25k a month). Rivals subsidise
+frontiers past 70 and now and then incite against a stronger claimant.
+
+**Trade** (trade.js). Six goods from the provinces that made them (data/powers.js).
+Each good a province makes brings 6k a month to market (+30% with a harbour,
+half above 60 unrest). Agreements with a rival at peace: 10k a month for each
+good he has that you lack, and the good itself; war ends them. Effects of
+holding a good: metal (levies 20% cheaper, +0.05 drill), horses (cavalry
++25%, small fights +4%), timber (works 20% cheaper), grain (winter crossings
+and enemies left behind cost half), wine and oil (legion loyalty +0.3 a
+month), luxuries (legitimacy +0.3 a month, games 25% cheaper).
+
+**Rivals.** Proposals: trade, a truce with gold (+0.1 per 100k, times his
+personality), a province demanded from a partner at peace who is less than
+half your strength. Personalities from Tacitus: Galba (gifts at half), Otho
+(truces easier), Vitellius (gold weighs 1.5×), Vespasian (truces easy,
+alliances hard).
+
+**Story.** Twenty-one more events, including chains (the astrologer's
+prophecy, the father-in-law, the priests' curse, the tribune who went over,
+Civilis turning on Rome, your brother in Rome), the Senate (an accuser, an
+embassy with the Vestals, the consulship, the Arval Brothers), trade
+(bankers, Anicetus' pirates, a mine revolt, the merchants' tolls), the
+frontiers (Civilis, Vologases' forty thousand horse, Cartimandua, the
+Dacians), and rivals (an offer of retirement, which can end the campaign; a
+legate for sale). Pages when an emperor is recognised and when one of the
+four dies.
+
+**Fixed on the way.** Act I could leave you with nothing to approach for
+months when every other legion stood aside below three-quarters of the men;
+legions standing aside no longer defend the governor.

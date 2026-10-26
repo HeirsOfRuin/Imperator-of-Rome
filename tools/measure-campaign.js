@@ -24,7 +24,7 @@ export function batch(difficulty, road, starts, n, extraOpts = {}) {
 
 const pct = (k, n) => `${(100 * k / n).toFixed(1)}% ±${seRate(k / n, n).toFixed(1)}`;
 
-if (process.argv[1].endsWith('measure-campaign.js')) {
+if (process.argv[1].endsWith("measure-campaign.js")) {
   const t0 = Date.now();
   for (const d of diffs) {
     console.log(`\n=== ${d} (${runs} runs per start x ${STARTS.length} starts per road)`);

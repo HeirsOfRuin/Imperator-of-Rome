@@ -14,7 +14,7 @@ const PNAME = Object.fromEntries(PROVINCES.map((p) => [p.id, p.name]));
 const $app = document.getElementById('app');
 let S = null, V = null;
 let screen = 'title';          // title | newgame | game
-let tab = 'map', sel = null, modalOff = -1, toastT = null, pTab = 'overview', eventLater = -1;
+let tab = 'map', sel = null, modalOff = -1, toastT = null, pTab = 'overview', eventLater = -1, dTab = 'rivals';
 const ng = { difficulty: 'centurion', start: 'GSU', road: 'politics', custom: false, bg: {}, name: '' };
 const map = new MapView((pid) => { if (sel !== pid) pTab = 'overview'; sel = pid; render(); });
 let bChip = 'sector:1', bSel = null, bRoundSeen = -1;
@@ -79,6 +79,8 @@ function doAct(a) {
   else if (a.type === 'choose' && r.text) toast(r.text, 'good');
   else if (a.type === 'formArmy' || a.type === 'split') toast('The army is formed. Tap a province on the map to march it.', 'good');
   else if (a.type === 'joinArmy' && r.joined === false) toast('The legion marches to join the army.', '');
+  else if (a.type === 'people' && r.ok) toast(a.what === 'incite' ? (r.found ? 'They take your gold, and the Senate hears of it.' : 'They take your gold. The frontier will burn.') : a.what === 'subsidy' ? 'They will be quiet for six months.' : 'Vologases sends his friendship.', r.found ? 'bad' : 'good');
+  else if ((a.type === 'motion' || a.type === 'court') && r.ok) toast(a.type === 'court' ? 'The senators dine well, and remember who paid.' : 'The Senate votes as you asked.', 'good');
   else if (a.type === 'payPart') toast(`Paid ${r.paid}k. They will wait three more months for the rest.`, 'good');
   else if (a.type === 'battleRound' && r && r.result) toast(r.result === 'won' ? 'Victory.' : r.result === 'lost' ? 'Defeat.' : 'Neither army broke.', r.result === 'won' ? 'good' : 'bad');
   refresh();
@@ -105,7 +107,7 @@ const ICONS = {
   legate: '<circle cx="12" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M4 21c1-5 15-5 16 0" fill="none" stroke="currentColor" stroke-width="1.8"/>',
 };
 function nav() {
-  const tabs = [['map', 'Map'], ['realm', 'Provinces'], ['army', 'Army'], ['diplomacy', 'Diplomacy'], ...(V.rome ? [['rome', 'Rome']] : []), ['dispatches', 'News'], ['legate', 'Legate']];
+  const tabs = [['map', 'Map'], ['realm', 'Provinces'], ['army', 'Army'], ['diplomacy', 'Powers'], ...(V.rome ? [['rome', 'Rome']] : []), ['dispatches', 'News'], ['legate', 'Legate']];
   const dots = { army: V.pending.length > 0 || (V.act1 && !V.act1.approached), diplomacy: V.offers.length > 0, rome: !!(V.rome && V.rome.plotWarned) };
   return `<nav class="nav"><div class="nav-in">${tabs.map(([id, label]) => `<button data-tab="${id}" class="${tab === id ? 'on' : ''}"><svg viewBox="0 0 24 24">${ICONS[id]}</svg>${dots[id] ? '<i class="dot"></i>' : ''}${label}</button>`).join('')}</div></nav>`;
 }
@@ -192,6 +194,7 @@ function renderEnd() {
     recalled: 'Your plotting reached Rome before you were ready. The recall came, and recall meant death.',
     'lost your legion': 'Your legion was bought or beaten out from under you before you could make your move. A legate without men is only a man.', 'history passed you by': 'You waited too long. The new emperor remembered your name.',
     'lost the throne': 'Rome fell to another, and you could not take it back.', 'murdered by conspirators': 'The knives came in the palace, as they so often did.', 'out of time': 'The years passed and the war ground on without you deciding it.',
+    retired: 'You took the villa in Campania. You grow old among your vines, and read about the war in letters from friends.',
   }[o.cause] || o.cause;
   $app.innerHTML = `<div class="end"><h1>${o.win ? 'Imperator' : 'The end'}</h1><p class="note">${esc(V.month)}</p><p>${esc(text)}</p>
     <div class="card" style="text-align:left"><div class="row">Legions at the end<span>${V.legions.length}</span></div><div class="row">Provinces<span>${V.provinces.filter((p) => p.mine).length}</span></div><div class="row">Legitimacy<span>${V.player.legit}</span></div></div>
@@ -227,6 +230,7 @@ function provinceSheet(pid) {
         <div class="label">Taxes</div><div class="seg">${p.taxes.map((t) => `<button class="${p.tax === t.level ? 'on' : ''}" ${A({ type: 'tax', pid, level: t.level })}>${t.level === 'extort' ? 'Extort' : t.level[0].toUpperCase() + t.level.slice(1)}<small>${t.rev}k · ${t.unrest > 0 ? '+' : ''}${t.unrest}</small></button>`).join('')}</div>
         <p class="note">Revenue a month · unrest change a month${p.revMult ? ` · works and governor add ${p.revMult}%` : ''}.</p>
         ${p.grain ? `<div class="label">Grain</div><div class="seg three">${[['ship', 'Ship to Rome'], ['hold', 'Hold'], ['embargo', 'Embargo']].map(([k, l]) => `<button class="${p.grainPolicy === k ? 'on' : ''}" ${A({ type: 'grain', pid, policy: k })}>${l}</button>`).join('')}</div><p class="note">Shipping sells grain to whoever rules Rome. An embargo starves him.</p>` : ''}
+        ${p.goods.length ? `<div class="row">Goods for market<span>${esc(p.goods.join(', '))}</span></div>` : ''}
         <div class="label">The people</div>
         <button class="btn block" ${A({ type: 'games', pid })} ${p.games ? 'disabled' : ''}>${p.games ? 'Games given this month' : `Give games · ${p.gamesCost}k · unrest falls sharply`}</button>
         <div class="label">Works</div>
@@ -254,6 +258,7 @@ function provinceSheet(pid) {
         <div class="row">Garrison<span>${n(p.aux)} auxiliaries</span></div>
         <div class="row">Walled towns<span>${p.towns}</span></div>
         ${others.map((l) => `<div class="row">${esc(l.name)}<span class="pill">${n(l.men)} men</span></div>`).join('')}
+        ${p.goods.length ? `<div class="row">Goods<span>${esc(p.goods.join(', '))}</span></div>` : ''}
         ${p.chest ? `<div class="row">Treasury to seize<span class="pill good">${n(p.chest)}k</span></div>` : ''}
         <div class="btns">
           ${pl.ownsProvince ? marchButtons(pid) : ''}
@@ -269,7 +274,7 @@ function realmScreen() {
   const mine = V.provinces.filter((p) => p.mine);
   const income = V.player.income, pay = V.player.pay;
   return `<div class="screen"><h2 class="sec">Your provinces</h2>
-    <div class="card"><div class="row">Revenue a month<span>${n(income)}k</span></div><div class="row">Legions' pay<span>−${n(pay)}k</span></div>${V.player.upkeep ? `<div class="row">Upkeep of works<span>−${n(V.player.upkeep)}k</span></div>` : ''}${V.player.interest ? `<div class="row">Interest<span>−${n(V.player.interest)}k</span></div>` : ''}<div class="row"><b>Balance</b><b class="${V.player.balance < 0 ? 'neg' : ''}">${V.player.balance >= 0 ? '+' : ''}${n(V.player.balance)}k</b></div></div>
+    <div class="card"><div class="row">Revenue a month<span>${n(income)}k</span></div>${V.player.trade ? `<div class="row">Trade<span>+${n(V.player.trade)}k</span></div>` : ''}<div class="row">Legions' pay<span>−${n(pay)}k</span></div>${V.player.upkeep ? `<div class="row">Upkeep of works<span>−${n(V.player.upkeep)}k</span></div>` : ''}${V.player.interest ? `<div class="row">Interest<span>−${n(V.player.interest)}k</span></div>` : ''}<div class="row"><b>Balance</b><b class="${V.player.balance < 0 ? 'neg' : ''}">${V.player.balance >= 0 ? '+' : ''}${n(V.player.balance)}k</b></div></div>
     ${mine.length ? `<div class="label">Set every province's taxes</div><div class="seg">${['light', 'normal', 'heavy', 'extort'].map((t) => `<button ${A({ type: 'taxAll', level: t })}>${t === 'extort' ? 'Extort' : t[0].toUpperCase() + t.slice(1)}</button>`).join('')}</div>` : '<p class="note">You hold no province yet.</p>'}
     ${mine.map((p) => `<div class="card"><h3>${esc(p.name)} <small>${p.tax} taxes</small></h3><div class="row">Revenue<span>${p.taxes.find((t) => t.level === p.tax).rev}k</span></div><div class="row">Unrest<span class="pill ${p.unrest > 50 ? 'bad' : ''}">${p.unrest}</span></div>${p.frontier ? `<div class="row">Frontier threat<span class="pill ${p.threat >= 60 ? 'bad' : ''}">${p.threat}</span></div>` : ''}<div class="row">Works<span>${p.worksUsed} of ${p.slots}${p.building ? ' · building' : ''}</span></div>
       <div class="btns"><button class="btn small" data-sel="${p.id}" data-ptab="overview">Manage</button><button class="btn small ${p.canBuildAny ? 'primary' : ''}" data-sel="${p.id}" data-ptab="buildings">Build</button><button class="btn small" data-sel="${p.id}" data-ptab="forces">Forces</button><button class="btn small" data-sel="${p.id}" data-ptab="governor">Governor</button></div></div>`).join('')}
@@ -386,35 +391,98 @@ function armyScreen() {
     ${due.length ? `<h2 class="sec">Promises</h2><p class="note">Unpaid past their day, they cost loyalty every month. Paying half buys ${3} more months, once.</p>${due.map((l) => `<div class="row"><div>${esc(l.name)}<small>${l.debt}k ${l.overdue ? '· overdue' : '· due ' + esc(l.due)}</small></div><div class="btns" style="margin:0">${l.canPart ? `<button class="btn small" ${A({ type: 'payPart', legionId: l.id })}>Pay half</button>` : ''}<button class="btn small" ${A({ type: 'pay', legionId: l.id })}>Pay</button></div></div>`).join('')}` : ''}
   </div>`;
 }
-// ---------- diplomacy
+// ---------- powers: rivals, the Senate, the frontiers, trade
 const KIND = { hist: 'Claimant', minor: 'Rebel', proc: 'Usurper' };
+const MOTION = {
+  decree: ['Legate of the Senate and People', 'Legitimacy +8. As Galba styled himself.'],
+  imperium: ['Proconsular imperium', 'Legitimacy +4; the Senate will recognise you at legitimacy 15 instead of 25. Favour −5.'],
+  thanks: ['Thanksgiving for a victory', 'Legitimacy +5, after a pitched battle won in the last two months.'],
+  aerarium: ['Open the treasury of Saturn', '+300k now. Favour −15, legitimacy −3. Refills in six months.'],
+  exiles: ["Restore Nero's exiles", '100k to buy back their estates. Favour +12, legitimacy +2. Once.'],
+};
+function powersTabs() {
+  const tabs = [['rivals', 'Rivals'], ['senate', 'Senate'], ['frontiers', 'Frontiers'], ['trade', 'Trade']];
+  return `<div class="seg four" style="margin-bottom:10px">${tabs.map(([id, l]) => `<button class="${dTab === id ? 'on' : ''}" data-act="dtab" data-dtab="${id}">${l}</button>`).join('')}</div>`;
+}
 function diplomacyScreen() {
+  const body = { rivals: rivalsPane, senate: senatePane, frontiers: frontiersPane, trade: tradePane }[dTab] || rivalsPane;
+  return `<div class="screen">${powersTabs()}${body()}</div>`;
+}
+function offerText(o) {
+  return o.type === 'submission' ? 'offers to submit to you, with his legions and provinces, for an office you will owe him. He will command his army for you.'
+    : o.type === 'alliance' ? `proposes an alliance against ${esc(o.targetName)}.` : o.type === 'trade' ? 'proposes a trade agreement: his merchants in your markets, yours in his.' : `proposes a truce for ${o.months} months.`;
+}
+function rivalsPane() {
   const p = V.player;
   const alive = V.factions.filter((f) => f.alive);
   const strongest = [...alive].sort((a, b) => b.strength - a.strength);
-  return `<div class="screen">
-    ${V.offers.length ? `<h2 class="sec">Offers</h2>${V.offers.map((o) => `<div class="card gold"><h3>${esc(o.fromName)}</h3><p class="note">${o.type === 'submission' ? 'offers to submit to you, with his legions and provinces, for an office you will owe him.' : o.type === 'alliance' ? `proposes an alliance against ${esc(o.targetName)}.` : `proposes a truce for ${o.months} months.`}</p><div class="btns"><button class="btn primary" data-choice ${A({ type: 'answer', offerId: o.id, accept: true })}>Accept</button><button class="btn" data-choice ${A({ type: 'answer', offerId: o.id, accept: false })}>Decline</button></div></div>`).join('')}` : ''}
-    <h2 class="sec">Rivals</h2><p class="note">Envoys left this month: ${p.envoys}. A proposal shows how he is likely to take it, and why.</p>
-    ${strongest.map((f) => `<div class="card"><h3><span><i class="chip" style="background:${f.color}"></i>${esc(f.name)}</span><small>${KIND[f.kind] || ''}${f.acclaimed ? ' · proclaimed' : ''}</small></h3>
+  return `${V.offers.length ? `<h2 class="sec">Offers</h2>${V.offers.map((o) => `<div class="card gold"><h3>${esc(o.fromName)}</h3><p class="note">${offerText(o)}</p><div class="btns"><button class="btn primary" data-choice ${A({ type: 'answer', offerId: o.id, accept: true })}>Accept</button><button class="btn" data-choice ${A({ type: 'answer', offerId: o.id, accept: false })}>Decline</button></div></div>`).join('')}` : ''}
+    <h2 class="sec">Rivals</h2><p class="note">Envoys left this month: ${p.envoys}. Each proposal shows how he is likely to take it, and why. Gold sweetens a truce.</p>
+    ${strongest.map((f) => `<div class="card"><h3><span><i class="chip" style="background:${f.color}"></i>${esc(f.name)}</span><small>${KIND[f.kind] || ''}${f.acclaimed ? ' · proclaimed' : ''}${f.hostis ? ' · public enemy' : ''}</small></h3>
+      ${f.personality ? `<p class="note">${esc(f.personality)}</p>` : ''}
       <div class="row">Legions · provinces<span>${f.legions} · ${f.provinces}</span></div>
       <div class="row">His standing with you<span class="pill ${f.standing >= 30 ? 'good' : f.standing <= -30 ? 'bad' : ''}">${f.standing}</span></div>
-      <div class="row">Distance<span>${f.distance != null ? f.distance + ' months' : '–'}</span></div>
+      <div class="row">The Senate's favour<span>${f.favour}</span></div>
+      <div class="row">Distance<span>${f.distance != null ? f.distance + (f.distance === 1 ? ' month' : ' months') : '–'}</span></div>
       ${f.treaty ? `<div class="row">Treaty<span class="pill good">${f.treaty.type}${f.treaty.until ? ' to ' + esc(monthOf(f.treaty.until)) : ''}</span></div>` : ''}
+      ${f.trading ? '<div class="row">Trade<span class="pill good">agreement</span></div>' : ''}
       <div class="btns">
-        ${f.treaty ? `<button class="btn small" ${A({ type: 'breakTreaty', treatyId: f.treaty.id })}>Break the treaty</button>` : `<button class="btn small" ${A({ type: 'propose', to: f.id, kind: 'truce', months: 12 })} ${p.envoys > 0 ? '' : 'disabled'}>Truce · ${f.truce.ok ? 'likely' : 'unlikely'}</button>`}
+        ${f.treaty ? `<button class="btn small" ${A({ type: 'breakTreaty', treatyId: f.treaty.id })}>Break the treaty</button>` : `<button class="btn small" ${A({ type: 'propose', to: f.id, kind: 'truce', months: 12 })} ${p.envoys > 0 ? '' : 'disabled'}>Truce · ${f.truce.ok ? 'likely' : 'unlikely'}</button><button class="btn small" ${A({ type: 'propose', to: f.id, kind: 'truce', months: 12, gold: 150 })} ${p.envoys > 0 && p.treasury >= 150 ? '' : 'disabled'}>Truce with 150k</button>`}
         <button class="btn small" ${A({ type: 'propose', to: f.id, kind: 'submission' })} ${p.envoys > 0 ? '' : 'disabled'}>Demand submission · ${f.submission.ok ? 'likely' : 'unlikely'}</button>
         <button class="btn small" ${A({ type: 'gift', to: f.id, amount: 60 })}>Gift · 60k</button>
+        ${f.treaty && !f.trading ? `<button class="btn small" ${A({ type: 'propose', to: f.id, kind: 'trade' })} ${p.envoys > 0 && f.tradeEval.score > 0 ? '' : 'disabled'}>Trade · ${f.tradeEval.ok ? 'likely' : 'unlikely'}</button>` : ''}
       </div>
-      ${!f.treaty ? `<p class="note">${esc([...f.truce.reasons].slice(0, 2).join('; ') || ' ')}</p>` : ''}
+      ${!f.treaty ? `<p class="note">${esc([...f.truce.reasons].slice(0, 2).join('; ') || ' ')}</p>` : f.trading ? '' : `<p class="note">Trade: you would get ${esc(f.gains.you.join(', ') || 'nothing new')}; he would get ${esc(f.gains.him.join(', ') || 'nothing new')}. ${esc(f.tradeEval.reasons.slice(0, 2).join('; '))}</p>`}
+      ${f.cedable.length ? `<div class="label">Demand a province</div><div class="btns">${f.cedable.slice(0, 3).map((c) => `<button class="btn small" ${A({ type: 'propose', to: f.id, kind: 'cede', target: c.id })} ${p.envoys > 0 ? '' : 'disabled'}>${esc(c.name)} · ${c.eval.ok ? 'likely' : 'unlikely'}</button>`).join('')}</div>` : ''}
       ${!f.treaty && strongest.filter((g) => g.id !== f.id).length ? `<div class="btns">${strongest.filter((g) => g.id !== f.id).slice(0, 2).map((g) => `<button class="btn small" ${A({ type: 'propose', to: f.id, kind: 'alliance', target: g.id })} ${p.envoys > 0 ? '' : 'disabled'}>Ally against ${esc(g.name.split(' ').slice(-1)[0])}</button>`).join('')}</div>` : ''}
     </div>`).join('') || '<p class="note">No rival claimant has risen yet.</p>'}
-    <h2 class="sec">The Senate</h2>
-    <div class="card"><p class="note">A decree naming you legate of the Senate and People, as Galba styled himself: legitimacy +8, and easier recognition later.</p><button class="btn block" data-act="decree" ${p.decree ? 'disabled' : ''}>${p.decree ? 'Granted' : `Ask for the decree · ${p.decreeCost}k`}</button></div>
     <h2 class="sec">Kings and foreign powers</h2>
     ${V.clients.map((c) => `<div class="row"><div>${esc(c.name)}<small>${n(c.men)} men · ${c.cost}k${c.parthian ? ' · Romans will not forgive Parthians in Italy: legitimacy −15' : ''}${c.why ? ' · ' + esc(c.why) : ''}</small></div><button class="btn small" ${A({ type: 'client', client: c.id })} ${c.why ? 'disabled' : ''}>Ask</button></div>`).join('')}
     <h2 class="sec">Gold among their legions</h2><p class="note">A legion far from its general can be turned. If you are found out, its master will not forget.</p>
-    ${V.subvertable.map((l) => `<div class="row"><div>${esc(l.name)}<small>${esc(l.owner)} · ${esc(PNAME[l.loc])} · loyalty ${l.loyalty}</small></div><button class="btn small" ${A({ type: 'subvert', legionId: l.id })} ${l.ok ? '' : 'disabled'}>${l.cost}k</button></div>`).join('') || '<p class="note">No rival legion stands apart from its general.</p>'}
-  </div>`;
+    ${V.subvertable.map((l) => `<div class="row"><div>${esc(l.name)}<small>${esc(l.owner)} · ${esc(PNAME[l.loc])} · loyalty ${l.loyalty}</small></div><button class="btn small" ${A({ type: 'subvert', legionId: l.id })} ${l.ok ? '' : 'disabled'}>${l.cost}k</button></div>`).join('') || '<p class="note">No rival legion stands apart from its general.</p>'}`;
+}
+function senatePane() {
+  const S = V.senate;
+  return `<h2 class="sec">The Senate</h2>
+    <div class="card"><div class="row">Its favour toward you<span class="pill ${S.favour >= 60 ? 'good' : S.favour < 25 ? 'bad' : ''}">${S.favour}</span></div>
+      <div class="meter purple"><i style="width:${S.favour}%"></i></div>
+      ${S.hostis ? `<p class="note" style="color:var(--crimson)"><b>You are a public enemy</b> until ${esc(monthOf(S.hostisUntil))}. The Senate will not recognise you; your legions waver. Taking Rome makes them think again.</p>` : ''}
+      <div class="row">Recognition needs legitimacy<span>${S.recognition}${S.imperium ? ' (imperium)' : ''}</span></div>
+      <p class="note">Favour drifts toward what your legitimacy deserves. Gifts and honours raise it; plunder, broken treaties, terror and barbarian allies lower it. At 60 the Senate warns you of plots; under 25 it sharpens knives.</p>
+      <button class="btn block" ${A({ type: 'court' })} ${S.courted || V.player.treasury < 80 ? 'disabled' : ''}>${S.courted ? 'Courted this month' : 'Court the senators · 80k · favour +8'}</button></div>
+    <h2 class="sec">Motions${S.motionUsed ? ' · used this month' : ' · one a month'}</h2>
+    ${S.motions.map((m) => `<button class="opt" ${A({ type: 'motion', motion: m.id })} ${m.why ? 'disabled' : ''}><b>${esc(MOTION[m.id][0])}${m.id === 'decree' ? ` <span>${S.decreeCost}k</span>` : ''}</b><em>${esc(m.why || MOTION[m.id][1])}</em></button>`).join('')}
+    <h2 class="sec">Declare a public enemy</h2>
+    <p class="note">Hold Rome or the throne, with favour of 60 or more and 15 above his. He loses legitimacy, his legions waver, and the Senate cannot recognise him for a year. Favour −10.</p>
+    ${S.rivals.map((r) => `<div class="row"><div>${esc(r.name)}<small>favour ${r.favour}${r.hostis ? ' · already a public enemy' : ''}</small></div><button class="btn small" ${A({ type: 'motion', motion: 'hostis', target: r.id })} ${r.why ? 'disabled' : ''}>Outlaw</button></div>`).join('') || '<p class="note">No rival yet.</p>'}`;
+}
+const FRONTIER_NAME = { britain: 'British', rhine: 'Rhine', danube: 'Danube', east: 'Eastern', judaea: 'Judaean', africa: 'African' };
+function frontiersPane() {
+  return `<h2 class="sec">Beyond the frontiers</h2>
+    <p class="note">Gold keeps a people quiet for six months, or sets them on whoever holds their frontier. If you hold part of it, you burn too; if it comes out, the Senate will not forgive it.</p>
+    ${V.peoples.map((q) => `<div class="card"><h3>${esc(q.name.charAt(0).toUpperCase() + q.name.slice(1))} <small>${esc(FRONTIER_NAME[q.frontier] || q.frontier)} frontier</small></h3>
+      <p class="note">${esc(q.note)}</p>
+      <div class="row">Threat<span class="pill ${q.threat >= 70 ? 'bad' : ''}">${q.threat}</span></div>
+      <div class="meter red"><i style="width:${Math.min(100, q.threat)}%"></i></div>
+      <div class="row">Frontier held by<span>${esc(q.holders.join(', '))}</span></div>
+      ${q.subsidised ? `<div class="row">Paid to keep quiet<span>by ${esc(q.subsidised.by)} to ${esc(monthOf(q.subsidised.until))}</span></div>` : ''}
+      ${q.incited ? '<div class="row">Up in arms<span class="pill bad">incited</span></div>' : ''}
+      ${q.treaty ? `<div class="row">Friend of<span>${esc(q.friend || 'no Roman')}</span></div>` : ''}
+      <div class="btns">
+        <button class="btn small" ${A({ type: 'people', people: q.id, what: 'subsidy' })} ${q.why.subsidy ? 'disabled' : ''}>Subsidy · ${q.subsidy}k</button>
+        <button class="btn small" ${A({ type: 'people', people: q.id, what: 'incite' })} ${q.why.incite ? 'disabled' : ''}>Incite · ${q.incite}k</button>
+        ${q.treaty ? `<button class="btn small" ${A({ type: 'people', people: q.id, what: 'treaty' })} ${q.why.treaty ? 'disabled' : ''}>Friendship · ${q.treaty}k</button>` : ''}
+      </div>
+      <p class="note">${esc([q.why.subsidy && 'Subsidy: ' + q.why.subsidy, q.why.incite && 'Incite: ' + q.why.incite, q.treaty && q.why.treaty && 'Friendship: ' + q.why.treaty].filter(Boolean).join(' · '))}</p></div>`).join('')}`;
+}
+function tradePane() {
+  const t = V.tradeParts;
+  return `<h2 class="sec">Trade</h2>
+    <div class="card"><div class="row">Markets<span>${n(t.market)}k a month</span></div><div class="row">Agreements<span>${n(t.agreements)}k</span></div>${t.silk ? `<div class="row">The silk road<span>${n(t.silk)}k</span></div>` : ''}<div class="row"><b>Trade income</b><b>${n(t.total)}k</b></div>
+      <p class="note">Each good your provinces make brings merchant income; a harbour adds to it. Agreements with rivals at peace bring their goods and more income. War closes the roads.${V.partners.length ? ' You trade with ' + esc(V.partners.join(', ')) + '.' : ''}</p></div>
+    <h2 class="sec">Goods</h2>
+    ${V.goods.map((g) => `<div class="row"><div>${esc(g.name)} ${g.held ? `<span class="pill good">${g.own ? 'yours' : 'traded'}</span>` : ''}<small>${esc(g.does)}${g.from.length ? ' · from ' + esc(g.from.join(', ')) : ''}</small></div></div>`).join('')}
+    <p class="note">You hold a good if you own a province that makes it, or trade with someone who does. Propose trade from the Rivals page, once you have a truce or an alliance.</p>`;
 }
 function monthOf(t) { const M = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']; return `${M[(2 + t) % 12]} ${68 + Math.floor((2 + t) / 12)}`; }
 
@@ -465,7 +533,7 @@ function modal() {
   if (V.offers.length && tab !== 'diplomacy') {
     const o = V.offers[0];
     return `<div class="modal"><div class="modal-in"><div class="bar"><div><h3>An envoy from ${esc(o.fromName)}</h3></div><button class="x" data-act="close">×</button></div><div class="body">
-      <p>${o.type === 'submission' ? 'He offers to submit to you, with his legions and provinces, for an office you will owe him. He will command his army for you.' : o.type === 'alliance' ? `He proposes an alliance against ${esc(o.targetName)}.` : `He proposes a truce for ${o.months} months.`}</p>
+      <p>He ${offerText(o)}</p>
       <div class="btns"><button class="btn primary" data-choice ${A({ type: 'answer', offerId: o.id, accept: true })}>Accept</button><button class="btn" data-choice ${A({ type: 'answer', offerId: o.id, accept: false })}>Decline</button></div></div></div></div>`;
   }
   return '';
@@ -532,6 +600,7 @@ document.addEventListener('click', async (e) => {
   else if (a === 'bedriacum') { S = bedriacum({ seed: (Date.now() % 100000) + 1 }); screen = 'game'; tab = 'map'; bChip = 'sector:1'; bSel = null; refresh(); }
   else if (a === 'bchip') { bChip = t.dataset.chip; render(); }
   else if (a === 'ptab') { pTab = t.dataset.ptab; render(); }
+  else if (a === 'dtab') { dTab = t.dataset.dtab; render(); }
   else if (a === 'acclaim') doAct({ type: 'acclaim' });
   else if (a === 'decree') doAct({ type: 'decree' });
   else if (a === 'close') { modalOff = V.turn; render(); }

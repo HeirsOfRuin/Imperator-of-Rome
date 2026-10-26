@@ -1,3 +1,4 @@
+import { supplyGoodMult } from './trade.js';
 import { mergeColumns } from './generals.js';
 import { CONFIG } from './config.js';
 import { harbourAt } from './buildings.js';
@@ -14,7 +15,7 @@ export function movement(s) {
     const F = s.factions[A.owner];
     if (!F.alive) continue;
     if (A.bypassed) {
-      for (const id of A.legions) { const l = s.legions[id]; l.men = Math.round(l.men * (1 - Math.min(0.04, 0.01 * A.bypassed))); l.loyalty -= 1; }
+      for (const id of A.legions) { const l = s.legions[id]; l.men = Math.round(l.men * (1 - Math.min(0.04, 0.01 * A.bypassed) * supplyGoodMult(s, A.owner))); l.loyalty -= 1; }
       A.bypassed = Math.max(0, A.bypassed - 1);
     }
     // supply: no province can feed more than eight legions in one place
@@ -32,7 +33,7 @@ export function movement(s) {
     }
     A.edgeLeft--;
     if (A.edgeLeft > 0) continue;
-    if (winter && A.edgeKind !== 'land' && !A.harboured) for (const id of A.legions) s.legions[id].men = Math.round(s.legions[id].men * (A.edgeKind === 'alps' ? 0.94 : 0.97));
+    if (winter && A.edgeKind !== 'land' && !A.harboured) for (const id of A.legions) s.legions[id].men = Math.round(s.legions[id].men * (1 - (A.edgeKind === 'alps' ? 0.06 : 0.03) * supplyGoodMult(s, A.owner)));
     A.from = A.loc;
     A.loc = A.path.shift();
     for (const id of A.legions) s.legions[id].loc = A.loc;

@@ -1,3 +1,5 @@
+import { levyGoodMult, buildGoodMult, gamesGoodMult } from './trade.js';
+import { CONFIG } from './config.js';
 // Buildings and governors: provincial management. The same rules for the
 // player and every rival; every effect is wired into the engine below and
 // measured by tools/measure-buildings.js (an effect nobody wants gets cut).
@@ -19,7 +21,7 @@ export function canBuild(s, F, pid, bid) {
   if ((P.buildings || []).length >= SLOTS[d.tier]) return 'No room: every site is used';
   if (P.building) return 'One work at a time: wait for the current one';
   if (P.unrest >= 70) return 'Too unruly to build';
-  if (F.treasury < B.cost) return 'Not enough money';
+  if (F.treasury < buildCost(s, F.id, bid)) return 'Not enough money';
   return '';
 }
 
@@ -27,7 +29,7 @@ export function build(s, F, pid, bid) {
   const why = canBuild(s, F, pid, bid);
   if (why) return { error: why };
   const B = BUILDINGS[bid];
-  money(s, F, -B.cost, 'building: ' + B.name);
+  money(s, F, -buildCost(s, F.id, bid), 'building: ' + B.name);
   s.prov[pid].building = { id: bid, done: s.turn + B.months };
   return { ok: true };
 }
@@ -72,6 +74,10 @@ export function threatMult(s, provinces) { return provinces.some((pid) => has(s.
 export function garrisonMult(P) { return has(P, 'castra') ? 1.5 : 1; }
 export function levyMonthsOff(P) { return (has(P, 'dilectus') ? 1 : 0) + (P.governor?.trait === 'able' ? 1 : 0); }
 export function levyCostMult(P) { return has(P, 'dilectus') ? 0.75 : 1; }
+// what a levy, a work or games cost this faction (works and the market together)
+export function levyCostFor(s, fid, P) { return CONFIG.levyCost * levyCostMult(P) * levyGoodMult(s, fid); }
+export function buildCost(s, fid, bid) { return Math.round(BUILDINGS[bid].cost * buildGoodMult(s, fid)); }
+export function gamesCost(s, fid) { return Math.round(GAMES_COST * gamesGoodMult(s, fid)); }
 export function levyExp(P) { return has(P, 'dilectus') ? 0.75 : 0.6; }
 export function harbourAt(s, pid) { return has(s.prov[pid], 'harbour'); }
 
@@ -168,8 +174,8 @@ export function holdGames(s, F, pid) {
   const P = s.prov[pid];
   if (P.owner !== F.id) return { error: 'Not your province' };
   if (P.gamesTurn === s.turn) return { error: 'Games already given this month' };
-  if (F.treasury < GAMES_COST) return { error: 'Not enough money' };
-  money(s, F, -GAMES_COST, 'games');
+  if (F.treasury < gamesCost(s, F.id)) return { error: 'Not enough money' };
+  money(s, F, -gamesCost(s, F.id), 'games');
   P.gamesTurn = s.turn;
   P.unrest = Math.max(0, P.unrest - 20 - F.stats.gratia);
   return { ok: true };

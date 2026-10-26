@@ -1,3 +1,4 @@
+import { levyGoodExp, smallFightGoodMult } from './trade.js';
 import { garrisonMult, levyExp } from './buildings.js';
 import { GROUP_OF_PROVINCE, BACKGROUND } from '../data/world.js';
 import { streamFor } from './rng.js';
@@ -293,7 +294,7 @@ export function killFaction(s, F, cause) {
 }
 
 export function levyLegion(s, F, pid, id) {
-  newLegion(s, { id, station: pid, group: GROUP_OF_PROVINCE[pid] || 'italy', exp: levyExp(s.prov[pid]), owner: F.id, loyalty: 62, levy: true });
+  newLegion(s, { id, station: pid, group: GROUP_OF_PROVINCE[pid] || 'italy', exp: levyExp(s.prov[pid]) + levyGoodExp(s, F.id), owner: F.id, loyalty: 62, levy: true });
 }
 
 export function makeArmy(s, owner, loc, legionIds, dest) {

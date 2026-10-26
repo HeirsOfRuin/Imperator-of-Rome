@@ -2,7 +2,7 @@ import { levyGoodMult, buildGoodMult, gamesGoodMult } from './trade.js';
 import { CONFIG } from './config.js';
 // Buildings and governors: provincial management. The same rules for the
 // player and every rival; every effect is wired into the engine below and
-// measured by tools/measure-buildings.js (an effect nobody wants gets cut).
+// measured by `npm run measure:buildings` (sim/ablations/buildings.js) (an effect nobody wants gets cut).
 import { BUILDINGS, SLOTS, TRAITS, GAMES_COST } from '../data/buildings.js';
 import { PROV, ADJ } from './graph.js';
 import { money, log, legateName, newFaction, ownedProvinces, ownedLegions, strengthOf } from './core.js';

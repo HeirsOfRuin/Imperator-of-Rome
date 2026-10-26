@@ -10,7 +10,8 @@ Status: Phase 2 plus the first playtest's fixes: the field, buildings and govern
 - `docs/SPEC.md` — the design spec and decisions log
 - `docs/KILLGATE.md` — what the sim measured, what it changed, open issues
 - `docs/PROVINCES.md` — provinces and legions, AD 68–69, with sources (draft, to be verified)
-- `sim/` — the kill-gate model (Node, no dependencies)
+- `prototypes/killgate/` — the kill-gate model (the Stage 2 record; `npm run killgate`)
+- `sim/` — measurement: the game-measure kit and `sim/adapter.js`; questions in `sim/ablations/`, `sim/curves/`, `sim/claims.js`
 
 - `src/` — the game: `engine/` (pure), `data/`, `ui/`
 - `tools/` — check, bot, measurement, map builder, icons, phone smoke test
@@ -18,6 +19,7 @@ Status: Phase 2 plus the first playtest's fixes: the field, buildings and govern
 ```
 npm run serve        # then open http://localhost:8000
 npm run check        # invariants, purse == ledger, bot through the player interface
-npm run measure -- 20
+npm run measure -- --runs=20   # win rate by difficulty x road, ±1 SE
+npm run measure:depth          # ablations: depth, diplomacy, buildings, options
 node tools/smoke.mjs # phone smoke test (Playwright)
 ```

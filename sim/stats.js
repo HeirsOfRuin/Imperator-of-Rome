@@ -1,13 +1,15 @@
-// Measurement helpers for balance harnesses. Copy into sim/ or tools/.
+// The one statistics module for every measurement tool. Copy to sim/stats.js.
 //
-// Every number a harness prints should carry its noise floor, and every claim
-// should be a distribution, not just a mean. Both rules come from mistakes:
-//   - The Company read 21.4% then 11.4% win on the same build at 70 runs.
-//   - Farmyard's 60-run ablation read a helpful subsystem as harmful.
-//   - Touchline's mean starter fitness (96.4) hid the one exhausted man a
-//     manager actually notices; the worst-starter distribution showed it.
-//   - Farmyard's mean net worth averaged surviving farms with foreclosed ones
-//     and described neither.
+// Before this, five games computed the noise floor five ways (3 runs' worth,
+// 2 SE, paired SD, inline 4.5-sigma bands), so numbers were not comparable
+// between games or sessions. The rule everywhere now: a gap is a result when it
+// exceeds 2 standard errors of the difference (about 95%).
+//
+// Why every number carries its floor and a distribution:
+//  - The Company read 21.4% then 11.4% win on the same build at 70 runs.
+//  - Centennial Farm's 60-run ablation read a helpful subsystem as harmful.
+//  - Touchline's season-mean fitness (96.4) hid the one exhausted starter.
+//  - Centennial Farm's mean net worth averaged survivors with foreclosures.
 
 /** Standard error of a proportion p (0..1) over n runs, in percentage points. */
 export function seRate(p, n) {
@@ -15,15 +17,15 @@ export function seRate(p, n) {
   return 100 * Math.sqrt(Math.max(p * (1 - p), 1 / n) / n);
 }
 
-/** Gap (points) two rates need before it is a result: 2 SE of the difference. */
+/** Points a gap between two rates must exceed to count: 2 SE of the difference. */
 export function noiseFloor(p1, n1, p2 = p1, n2 = n1) {
   return 2 * Math.sqrt(seRate(p1, n1) ** 2 + seRate(p2, n2) ** 2);
 }
 
-/** Runs needed to resolve a gap of `points` at rate p (2 SE, two equal arms). */
+/** Runs per arm to resolve a gap of `points` at rate p (2 SE, two equal arms). */
 export function runsFor(points, p = 0.5) {
   const d = points / 100;
-  return Math.ceil((8 * p * (1 - p)) / (d * d));
+  return Math.ceil((8 * Math.max(p * (1 - p), 0.0025)) / (d * d));
 }
 
 export function quantile(sorted, q) {
@@ -33,52 +35,43 @@ export function quantile(sorted, q) {
   return sorted[lo] + (sorted[hi] - sorted[lo]) * (i - lo);
 }
 
-/** Mean, median, p10, p90, min, max. Use for anything a player feels at the tails. */
+export const median = (values) => quantile([...values].filter(Number.isFinite).sort((a, b) => a - b), 0.5);
+
+/** Mean, median, p10, p90, min, max, sd; non-finite values are counted as `bad` (they are bugs). */
 export function summarize(values) {
   const v = values.filter((x) => Number.isFinite(x)).sort((a, b) => a - b);
-  const bad = values.length - v.length; // NaN/Infinity are bugs: report them
-  const mean = v.reduce((a, b) => a + b, 0) / (v.length || 1);
-  return {
-    n: v.length, bad, mean, median: quantile(v, 0.5),
-    p10: quantile(v, 0.1), p90: quantile(v, 0.9), min: v[0], max: v[v.length - 1],
-  };
+  const bad = values.filter((x) => x !== null && x !== undefined && !Number.isFinite(x)).length;
+  const n = v.length;
+  const mean = n ? v.reduce((a, b) => a + b, 0) / n : NaN;
+  const sd = n > 1 ? Math.sqrt(v.reduce((a, b) => a + (b - mean) ** 2, 0) / (n - 1)) : 0;
+  return { n, bad, mean, sd, se: n ? sd / Math.sqrt(n) : NaN, median: quantile(v, 0.5),
+    p10: quantile(v, 0.1), p90: quantile(v, 0.9), min: v[0], max: v[n - 1] };
+}
+
+/** "12.3% ±1.4" — a rate with 1 SE. */
+export function pct(k, n) {
+  const p = n ? k / n : 0;
+  return `${(100 * p).toFixed(1)}% ±${seRate(p, n).toFixed(1)}`;
 }
 
 /**
- * Compare a variant against a baseline on several axes at once.
- * rows: [{ label, base: number[]|bool[], variant: number[]|bool[] }]
- * Booleans are treated as rates; numbers are summarized by median.
- * Reading one axis alone is how "never buy a machine" looked like the winning
- * play in Farmyard; three axes showed it was a risk-for-reward trade.
+ * Paired comparison on the same seeds: mean difference b - a with its SE.
+ * Pairing removes seed-to-seed variance, so it resolves smaller effects than
+ * two independent arms (The Lists' verify-backgrounds).
  */
-export function compare(rows) {
-  const out = [];
-  for (const r of rows) {
-    if (typeof r.base[0] === 'boolean') {
-      const n1 = r.base.length, n2 = r.variant.length;
-      const p1 = r.base.filter(Boolean).length / n1, p2 = r.variant.filter(Boolean).length / n2;
-      const gap = 100 * (p2 - p1), floor = noiseFloor(p1, n1, p2, n2);
-      out.push(`${r.label.padEnd(32)} ${(100 * p1).toFixed(1).padStart(6)}% ${(100 * p2).toFixed(1).padStart(6)}%  ` +
-        `${gap >= 0 ? '+' : ''}${gap.toFixed(1).padStart(5)}  floor ${floor.toFixed(1)}  ${Math.abs(gap) < floor ? 'NOISE' : 'REAL'}`);
-    } else {
-      const a = summarize(r.base), b = summarize(r.variant);
-      out.push(`${r.label.padEnd(32)} ${fmt(a.median).padStart(7)} ${fmt(b.median).padStart(7)}  ` +
-        `p10 ${fmt(a.p10)}->${fmt(b.p10)}  p90 ${fmt(a.p90)}->${fmt(b.p90)}${a.bad + b.bad ? `  !! ${a.bad + b.bad} non-finite` : ''}`);
-    }
+export function paired(a, b) {
+  const d = [];
+  for (let i = 0; i < Math.min(a.length, b.length); i++) {
+    const x = Number(a[i]), y = Number(b[i]);
+    if (Number.isFinite(x) && Number.isFinite(y)) d.push(y - x);
   }
-  return out.join('\n');
-}
-
-function fmt(x) {
-  if (!Number.isFinite(x)) return String(x);
-  return Math.abs(x) >= 100 ? Math.round(x).toString() : x.toFixed(2);
+  const s = summarize(d);
+  return { n: s.n, diff: s.mean, se: s.se, real: Math.abs(s.mean) > 2 * s.se };
 }
 
 /**
- * Share-of-total check for compounding systems (failure mode: no owner for a
- * product of multipliers). Assert composition, not magnitude: magnitude
- * assertions get deleted on every rebalance, share bands survive it.
- *   shares({ contracts: 7300, plunder: 300, raids: 120 }) -> { contracts: 0.945, ... }
+ * Shares of a total. Assert composition, not magnitude, for compounding
+ * systems: share bands survive a rebalance; magnitude asserts get deleted.
  */
 export function shares(parts) {
   const total = Object.values(parts).reduce((a, b) => a + Math.max(0, b), 0) || 1;

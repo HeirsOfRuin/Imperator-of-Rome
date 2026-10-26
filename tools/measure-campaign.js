@@ -3,7 +3,7 @@
 // the fight counts, loss causes and the other gate checks.
 import { play } from '../src/engine/turn.js';
 import { STARTS } from '../src/data/world.js';
-import { seRate, summarize } from './stats.js';
+import { seRate, summarize } from '../sim/stats.js';
 
 const runs = Number(process.argv[2] || 70);
 const diffs = process.argv[3] && process.argv[3] !== 'all' ? [process.argv[3]] : ['legionary', 'centurion', 'legate'];

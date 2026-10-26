@@ -335,7 +335,7 @@ Measured (`tools/measure-battle.js`, 300 battles a cell):
   friend from your past.
 - **The sheet has four tabs:** overview (taxes, grain, games), buildings,
   forces and governor.
-- **Every work matters somewhere.** `tools/measure-buildings.js` forbids each
+- **Every work matters somewhere.** `npm run measure:buildings` (sim/ablations/buildings.js) forbids each
   in turn: every one is built, and each changes 3–22 of 24 campaigns. The arms
   workshop was decoration and was folded into the levy office and the stone
   camp.
@@ -444,7 +444,7 @@ the author has played them.
 ## 16. Depth: the Senate, the frontiers, trade, rivals, story (2026-10-26)
 
 The plan is `docs/FRAME-DEPTH.md`. Every system below plays by the same rules
-for the rivals, and `tools/measure-depth.js` plays the same campaigns with
+for the rivals, and `npm run measure:depth` (sim/ablations/depth.js) plays the same campaigns with
 each one switched off.
 
 **The Senate** (senate.js). Favour 0–100 per claimant, drifting toward

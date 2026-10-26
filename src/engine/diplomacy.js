@@ -106,6 +106,15 @@ export function evaluate(s, X, Y, type, target) {
     if (g.a.length > g.b.length) reasons.push('he sees you gain more than he does');
     return { ok: score >= 0.6, score, reasons };
   }
+  if (type === 'partition') {
+    const why = partitionBlocked(s, Y, X);
+    if (why) return { ok: false, score: 0, reasons: [why] };
+    const ratio = xs / ys;
+    // on harder levels rivals are slower to settle, as with truces
+    score += 0.4 + (ratio > 0.8 && ratio < 1.25 ? 0.25 : 0) - 0.2 * (s.diff.truceReluctance || 0);
+    reasons.push(ratio > 1.25 ? 'he thinks he can still win' : ratio < 0.8 ? 'he knows he cannot win, and would rather keep half' : 'neither of you can finish the other');
+    return { ok: score >= 0.8, score, reasons };
+  }
   if (type === 'cede') {
     const P = s.prov[target];
     if (!s.peace[key(X.id, Y.id)]) return { ok: false, score: 0, reasons: ['only a partner at peace can be asked'] };
@@ -172,7 +181,7 @@ export function submit(s, X, Y) {
 // waits for the player (human) or the bot.
 export function propose(s, Y, X, type, opts = {}) {
   if (!X.alive || !Y.alive || X.id === Y.id) return { ok: false, reasons: ['no one to treat with'] };
-  if (treatyBetween(s, X.id, Y.id) && !['submission', 'trade', 'cede'].includes(type)) return { ok: false, reasons: ['a treaty already stands'] };
+  if (treatyBetween(s, X.id, Y.id) && !['submission', 'trade', 'cede', 'partition'].includes(type)) return { ok: false, reasons: ['a treaty already stands'] };
   if (type === 'trade' && tradeBetween(s, X.id, Y.id)) return { ok: false, reasons: ['you already trade'] };
   const gold = opts.gold || 0;
   if (gold && Y.treasury < gold) return { ok: false, reasons: ['you have not got the gold'] };
@@ -183,13 +192,14 @@ export function propose(s, Y, X, type, opts = {}) {
   const ev = X.kind === 'player' ? botAnswer(s, X, Y, type, opts) : evaluate(s, X, Y, type, opts.target);
   const bonus = (opts.hostages ? 0.15 : 0) + (gold ? (gold / 100) * 0.1 * ((PERSONALITY[X.id] || {}).giftMult ?? 1) : 0);
   if (gold) ev.reasons.push(`your gold weighs ${bonus >= 0.2 ? 'heavily' : 'a little'}`);
-  const need = { alliance: 0.95, truce: 0.7, trade: 0.6, cede: 0.75 }[type] ?? 0.75;
+  const need = { alliance: 0.95, truce: 0.7, trade: 0.6, cede: 0.75, partition: 0.8 }[type] ?? 0.75;
   const ok = bonus && ev.score > 0 ? ev.score + bonus >= need || ev.ok : ev.ok;
   if (ok) {
     if (gold) money(s, Y, -gold, 'gold to ' + X.name);
     if (type === 'submission') submit(s, X, Y);
     else if (type === 'trade') makeTrade(s, Y.id, X.id);
     else if (type === 'cede') cede(s, X, Y, opts.target);
+    else if (type === 'partition') partition(s, Y, X);
     else makeTreaty(s, Y.id, X.id, type, opts);
   } else adjustStanding(s, X.id, Y.id, type === 'cede' ? -10 : -3);
   return { ok, reasons: ev.reasons };
@@ -229,6 +239,32 @@ export function giveGift(s, F, X, amount) {
   money(s, F, -amount, 'gift to ' + X.name);
   adjustStanding(s, F.id, X.id, (amount / 10) * (1 + 0.1 * F.stats.opes) * (F.road === 'charisma' ? 1.3 : 1) * ((PERSONALITY[X.id] || {}).giftMult ?? 1));
   return { ok: true };
+}
+
+// Two Augusti: in the last act, when only two claimants are left, at peace for
+// six months, and neither can finish the other, they may divide the empire,
+// as Diocletian later would. A lesser victory: the game ends.
+export const PARTITION_PEACE = 6;
+export function partitionBlocked(s, Y, X) {
+  if (!s.actIVOpen) return 'Only in the last act';
+  if (!Y.acclaimed || !X.acclaimed) return 'Only between proclaimed claimants';
+  // the two of you must be most of what is left of the war: two-thirds of every claimant's legions
+  const left = Object.values(s.factions).filter((f) => f.alive && ['hist', 'minor', 'proc', 'player'].includes(f.kind));
+  const all = left.reduce((a, f) => a + ownedLegions(s, f.id).length, 0);
+  const two = ownedLegions(s, X.id).length + ownedLegions(s, Y.id).length;
+  if (two < 0.67 * all) return `Only when you two hold two-thirds of the claimants' legions (${Math.round((100 * two) / Math.max(1, all))}% now)`;
+  const t = s.treaties.find((x) => (x.a === Y.id && x.b === X.id) || (x.a === X.id && x.b === Y.id));
+  if (!t || (t.type !== 'truce' && t.type !== 'alliance')) return 'Only at peace: a truce or an alliance first';
+  if (s.turn - t.from < PARTITION_PEACE) return `After ${PARTITION_PEACE} months of peace (${s.turn - t.from} so far)`;
+  const r = strengthOf(s, X.id) / Math.max(1, strengthOf(s, Y.id));
+  if (r < 0.5 || r > 2) return r < 0.5 ? 'He is too weak to need it: make him submit' : 'He is too strong to need it';
+  return '';
+}
+export function partition(s, Y, X) {
+  const P = Y.kind === 'player' ? Y : X.kind === 'player' ? X : null;
+  log(s, `partition ${Y.id} ${X.id}`, 'ROM', `${who(s, Y.id)} and ${who(s, X.id).replace('You', 'you')} divide the empire between them.`);
+  if (P) s.outcome = { win: true, partial: true, cause: 'divided the empire', turn: s.turn, with: (P === Y ? X : Y).name };
+  if (P) s.stats.partitions = (s.stats.partitions || 0) + 1;
 }
 
 // X gives province pid to Y, at peace, under pressure.
@@ -350,6 +386,11 @@ export function botDiplomacy(s, P) {
   if (!off.includes('decree') && !s.opts.noPlayerSenate) aiSenate(s, P);
   if (!off.includes('clients')) for (const c of CLIENTS) if (!clientStatus(s, P, c) && P.treasury > c.cost + 200 && (!c.legit || P.road === 'military')) askClient(s, P, c.id);
   const near = rivalsOf(s, P).filter((Z) => hostile(s, P.id, Z.id) && distance(seat(s, P), seat(s, Z)) <= 3 && Z.kind !== 'barbarian');
+  // the last two: divide the empire if he will
+  if (!(s.opts.noBotLever || []).includes('partition') && s.actIVOpen && s.prov.ROM.owner !== 'player') {
+    const Z = rivalsOf(s, P).find((x) => !partitionBlocked(s, P, x));
+    if (Z) propose(s, P, Z, 'partition');
+  }
   // a partner at peace who is much weaker: ask for a neighbouring province
   if (!(s.opts.noBotLever || []).includes('cede') && !(P.lastCede > s.turn - 4)) {
     for (const Z of rivalsOf(s, P)) {

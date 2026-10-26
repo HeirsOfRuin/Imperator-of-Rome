@@ -169,6 +169,40 @@ export class FieldView {
       const r = makeRng(hashString(`${e.col}|${(performance.now() / 120) | 0}`));
       for (let i = 0; i < 18; i++) dot(COL_X[e.col] + r.float(0, COL_W), 29.5 + r.float(-1.5, 1.5), r.chance(0.3) ? PAL.pale : PAL.dust);
     }
+    // a charge: sparks and a jolt where the lines meet
+    if (this.prev && t < 0.45) for (const e of events.filter((x) => x.kind === 'melee' && (x.myOrder === 'charge' || x.theirOrder === 'charge'))) {
+      const r = makeRng(hashString(`charge|${e.col}|${(performance.now() / 70) | 0}`));
+      const from = e.myOrder === 'charge' ? 1 : -1;
+      for (let i = 0; i < 26; i++) dot(COL_X[e.col] + r.float(0, COL_W), 29.5 + from * r.float(0, 3) * (1 - t * 2), r.chance(0.5) ? PAL.pale : PAL.gold);
+    }
+    // a line breaks: a red wash over the sector and men streaming away
+    for (const e of events.filter((x) => x.kind === 'rout')) {
+      const a = this.prev ? Math.max(0, 0.35 * (1 - t)) : 0;
+      if (a > 0) { ctx.fillStyle = `rgba(140,28,43,${a})`; ctx.fillRect(COL_X[e.col] * s, (e.mine ? 30 : 0) * s, COL_W * s, 30 * s); }
+      const r = makeRng(hashString('rout|' + e.col + e.mine));
+      for (let i = 0; i < 20; i++) { const yy = e.mine ? 32 + r.float(0, 20) + t * 6 : 26 - r.float(0, 20) - t * 6; dot(COL_X[e.col] + r.float(0, COL_W), Math.max(0, Math.min(H - 1, yy)), e.mine ? PAL.you : foeCol); }
+    }
+    // what just happened, in words, over each sector (for the first moments of the round)
+    if (this.prev && t < 0.8) {
+      const said = {};
+      const tag = (col, mine, text, color) => { const k = col + '|' + mine; if (said[k]) return; said[k] = true; label(ctx, s, COL_X[col] + COL_W / 2, mine ? 50 : 10, text, color, 1 - t / 0.8); };
+      for (const e of events) {
+        if (e.col == null) continue;
+        if (e.kind === 'rout') tag(e.col, e.mine, e.mine ? 'YOUR LINE BREAKS' : 'THEY BREAK', e.mine ? '#F1A3AD' : PAL.youRim);
+        else if (e.kind === 'melee' && e.myOrder === 'charge') tag(e.col, true, 'CHARGE', PAL.youRim);
+        else if (e.kind === 'melee' && e.theirOrder === 'charge') tag(e.col, false, 'THEY CHARGE', PAL.pale);
+        else if (e.kind === 'volley') tag(e.col, e.mine, 'PILA', e.mine ? PAL.youRim : PAL.pale);
+        else if (e.kind === 'relief') tag(e.col, e.mine, 'FRESH LINE', e.mine ? PAL.youRim : PAL.pale);
+        else if (e.kind === 'reserve') tag(e.col, e.mine, 'RESERVE', e.mine ? PAL.youRim : PAL.pale);
+        else if (e.kind === 'flank') tag(e.col, e.mine, 'HORSE ON THE FLANK', e.mine ? PAL.youRim : PAL.pale);
+      }
+    }
+    // the end: say it on the field
+    if (vb.over) {
+      ctx.fillStyle = 'rgba(43,40,38,0.55)'; ctx.fillRect(0, 22 * s, W * s, 16 * s);
+      const word = vb.retreated ? 'RETREAT' : { won: 'VICTORY', lost: 'DEFEAT', draw: 'NEITHER BREAKS' }[vb.result];
+      label(ctx, s, W / 2, 30, word, vb.result === 'won' ? PAL.youRim : vb.result === 'lost' ? '#F1A3AD' : PAL.pale, 1, 2);
+    }
     // night
     if (vb.night) { ctx.fillStyle = 'rgba(30,24,48,0.38)'; ctx.fillRect(0, 0, W * s, H * s); }
   }
@@ -187,4 +221,17 @@ function shade(hex, f) {
   const n = parseInt(hex.slice(1), 16);
   const r = Math.round(((n >> 16) & 255) * f), g = Math.round(((n >> 8) & 255) * f), b = Math.round((n & 255) * f);
   return `rgb(${r},${g},${b})`;
+}
+
+// A word over the field, in the game's caption face, with a dark edge so it reads on grass.
+function label(ctx, s, x, y, text, color, alpha = 1, scale = 1) {
+  if (alpha <= 0) return;
+  ctx.save();
+  ctx.globalAlpha = Math.min(1, alpha);
+  ctx.font = `700 ${Math.round(s * 3.2 * scale)}px 'Source Sans 3', system-ui, sans-serif`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.lineWidth = Math.max(2, s * 0.9); ctx.strokeStyle = 'rgba(43,40,38,0.85)';
+  ctx.strokeText(text, x * s, y * s);
+  ctx.fillStyle = color; ctx.fillText(text, x * s, y * s);
+  ctx.restore();
 }

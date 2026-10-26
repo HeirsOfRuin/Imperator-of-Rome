@@ -572,3 +572,33 @@ set. Open: military still trails on two seed sets out of two; its problem is
 holding Rome with a smaller army, which wants a design answer (for example
 Vitellius' remedy: replacing the Praetorians with one's own legionaries)
 rather than more tuning.
+
+## 18. The guide, the field, a second ending, sound (2026-10-26)
+
+**The guide** (tutorial.js): optional at a new campaign, on by default. Eight
+steps, Army tab to the Senate; each done when the game shows it was done (an
+approach made, a province held, a work begun, an army marching, the Senate page
+opened), with a button to the tab and a pulsing nav icon. Kept in the save;
+skippable. The interface bot walks a guided campaign to its end.
+
+**The field.** Words over each sector for what just happened (CHARGE, THEY
+CHARGE, PILA, FRESH LINE, RESERVE, HORSE ON THE FLANK, YOUR LINE BREAKS, THEY
+BREAK); sparks where a charge lands; a red wash and men streaming away where a
+line breaks; VICTORY, DEFEAT or RETREAT across the field at the end, and the
+men each side lost. "Leave it to the general" now stops on the result too.
+
+**A second ending: two Augusti** (diplomacy.js). In the last act, when you and
+one rival hold two-thirds of all claimants' legions, have been at peace six
+months, and neither is twice the other's strength, you may propose dividing the
+empire. He weighs it like any proposal (more willing in a stalemate, less on
+harder levels). Accepted, the campaign ends in a lesser victory. The
+measurement bot proposes it whenever it may. Measured: 2.3% of Legionary
+campaigns, 0.9% of Centurion, 0.4% of Legate end this way.
+
+**Sound** (sound.js): synthesised in the browser, no files. Trumpets for a
+round, drums at the month's end, a fanfare or a low horn for the result, a
+chime when a decision waits. On by default; a switch on the Legate tab,
+remembered per device.
+
+**Balance after all of it** (25 per start and road): Legionary 33.6% (hold
+14 → 15 months), Centurion 15.6%, Legate 5.3%.

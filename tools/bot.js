@@ -35,7 +35,7 @@ function month(s) {
       const vv = view(s);
       const p = vv.pending.find((x) => x.id === pd.id);
       if (!p) break;
-      if (p.defence) { must(s, { type: 'encounter', pendingId: p.id, option: /^You|even/.test(p.enemy.odds) ? 'fight' : 'withdraw' }, 'defence'); if (s.battle) must(s, { type: 'battleAuto' }, 'battle'); break; }
+      if (p.defence) { must(s, { type: 'encounter', pendingId: p.id, option: /^You|even/.test(p.enemy.odds) ? 'fight' : 'withdraw' }, 'defence'); if (s.battle) { must(s, { type: 'battleAuto' }, 'battle'); must(s, { type: 'battleRound' }, 'battle result'); } break; }
       if (!p.bodies.length) break;
       const b = p.bodies[0];
       const pick = ['negotiate', 'buy', 'fight', 'bypass'].map((id) => b.options.find((o) => o.id === id)).find((o) => o && o.ok && (o.id !== 'negotiate' || /Likely|Even/.test(o.cost)) && (o.id !== 'fight' || !/far outnumber you|They are stronger/.test(o.cost)));

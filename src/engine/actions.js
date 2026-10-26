@@ -308,7 +308,8 @@ function battleAct(s, a) {
     }
     case 'battleAuto': {
       autoBattle(b, { [b.player]: me.general, [foe]: b.sides[foe].general });
-      return finishBattle(s);
+      // stop on the result, as a fought battle does: Return to the campaign finishes it
+      return { ok: true, over: true };
     }
     case 'battleRetreat': {
       soundRetreat(b, b.player, CONFIG.retreatLoss);

@@ -2,6 +2,7 @@
 import { newGame, bedriacum } from '../engine/turn.js';
 import { FieldView } from './field.js';
 import { act } from '../engine/actions.js';
+import { play, soundOn, setSound } from './sound.js';
 import { SERVED } from '../engine/story.js';
 import { view } from '../engine/view.js';
 import { toSave, fromSave, SAVE_KEY } from '../engine/save.js';
@@ -68,7 +69,9 @@ function toast(msg, kind = '') {
   toastT = setTimeout(() => t.remove(), 2600);
 }
 function doAct(a) {
+  const wasOver = !!(S.battle && S.battle.over);
   const r = act(S, a);
+  if (!(r && r.error)) cue(a, r, wasOver);
   if (r && r.error) toast(r.error, 'bad');
   else if (a.type === 'propose' && r) toast(r.ok === null ? 'Your envoy is on the road.' : r.ok ? 'Accepted.' : `Refused: ${(r.reasons || []).join('; ') || 'no reason given'}.`, r.ok ? 'good' : r.ok === null ? '' : 'bad');
   else if (a.type === 'letter') toast(r.result === 'won' ? 'The governor declares for you.' : 'The governor sends your envoy back.', r.result === 'won' ? 'good' : 'bad');
@@ -85,6 +88,16 @@ function doAct(a) {
   else if (a.type === 'battleRound' && r && r.result) toast(r.result === 'won' ? 'Victory.' : r.result === 'lost' ? 'Defeat.' : 'Neither army broke.', r.result === 'won' ? 'good' : 'bad');
   refresh();
   return r;
+}
+// what the ear hears for an action (sound.js)
+function cue(a, r, wasOver) {
+  const b = S.battle;
+  if (a.type === 'battleRound' && !wasOver) {
+    if (b && b.over) play(b.winner === b.player ? 'victory' : 'defeat'); else play('trumpets');
+  } else if (a.type === 'battleAuto' && b && b.over) play(b.winner === b.player ? 'victory' : 'defeat');
+  else if (a.type === 'battleRetreat') play('defeat');
+  else if (a.type === 'endMonth') { play('month'); if (S.event) setTimeout(() => play('choice'), 700); }
+  else if (a.type === 'encounter' && r && r.result === 'battle') play('trumpets');
 }
 function resultText(r) {
   return { cleared: 'Done: they are yours or out of the way.', aside: 'They stand aside for now.', lost: 'Beaten. Your men fall back.', blocked: 'You could not get past.', refused: 'They refuse.', withdrew: 'You fall back.' }[r] || '';
@@ -150,7 +163,7 @@ function renderTitle() {
 }
 
 const DIFF = {
-  legionary: ['Legionary', 'Rivals slower and fewer; hold Rome 14 months.'],
+  legionary: ['Legionary', 'Rivals slower and fewer; hold Rome 15 months.'],
   centurion: ['Centurion', 'The war as it was; hold Rome 18 months.'],
   legate: ['Legate', 'Every rival against the front-runner; hold Rome 24 months.'],
 };
@@ -202,9 +215,10 @@ function renderEnd() {
     recalled: 'Your plotting reached Rome before you were ready. The recall came, and recall meant death.',
     'lost your legion': 'Your legion was bought or beaten out from under you before you could make your move. A legate without men is only a man.', 'history passed you by': 'You waited too long. The new emperor remembered your name.',
     'lost the throne': 'Rome fell to another, and you could not take it back.', 'murdered by conspirators': 'The knives came in the palace, as they so often did.', 'out of time': 'The years passed and the war ground on without you deciding it.',
+    'divided the empire': 'The empire is divided. You rule one half as Augustus; your rival rules the other. Romans grumble that it cannot last. It might.',
     retired: 'You took the villa in Campania. You grow old among your vines, and read about the war in letters from friends.',
   }[o.cause] || o.cause;
-  $app.innerHTML = `<div class="end"><h1>${o.win ? 'Imperator' : 'The end'}</h1><p class="note">${esc(V.month)}</p><p>${esc(text)}</p>
+  $app.innerHTML = `<div class="end"><h1>${o.win ? (o.partial ? 'Augustus of half the world' : 'Imperator') : 'The end'}</h1><p class="note">${esc(V.month)}</p><p>${esc(text)}</p>
     <div class="card" style="text-align:left"><div class="row">Legions at the end<span>${V.legions.length}</span></div><div class="row">Provinces<span>${V.provinces.filter((p) => p.mine).length}</span></div><div class="row">Legitimacy<span>${V.player.legit}</span></div></div>
     <button class="btn primary block" data-act="new">New campaign</button><button class="btn block" data-act="title">Title</button></div>`;
 }
@@ -445,6 +459,7 @@ function rivalsPane() {
         ${f.treaty && !f.trading ? `<button class="btn small" ${A({ type: 'propose', to: f.id, kind: 'trade' })} ${p.envoys > 0 && f.tradeEval.score > 0 ? '' : 'disabled'}>Trade · ${f.tradeEval.ok ? 'likely' : 'unlikely'}</button>` : ''}
       </div>
       ${!f.treaty ? `<p class="note">${esc([...f.truce.reasons].slice(0, 2).join('; ') || ' ')}</p>` : f.trading ? '' : `<p class="note">Trade: you would get ${esc(f.gains.you.join(', ') || 'nothing new')}; he would get ${esc(f.gains.him.join(', ') || 'nothing new')}. ${esc(f.tradeEval.reasons.slice(0, 2).join('; '))}</p>`}
+      ${V.act === 4 && f.acclaimed ? `<div class="label">Divide the empire</div><button class="btn small" ${A({ type: 'propose', to: f.id, kind: 'partition' })} ${f.partition.why || p.envoys < 1 ? 'disabled' : ''}>Propose two Augusti · ${f.partition.why ? 'not yet' : f.partition.eval.ok ? 'likely' : 'unlikely'}</button><p class="note">${esc(f.partition.why || 'A lesser victory: the war ends, and you rule half the empire. ' + f.partition.eval.reasons.join('; '))}</p>` : ''}
       ${f.cedable.length ? `<div class="label">Demand a province</div><div class="btns">${f.cedable.slice(0, 3).map((c) => `<button class="btn small" ${A({ type: 'propose', to: f.id, kind: 'cede', target: c.id })} ${p.envoys > 0 ? '' : 'disabled'}>${esc(c.name)} · ${c.eval.ok ? 'likely' : 'unlikely'}</button>`).join('')}</div>` : ''}
       ${!f.treaty && strongest.filter((g) => g.id !== f.id).length ? `<div class="btns">${strongest.filter((g) => g.id !== f.id).slice(0, 2).map((g) => `<button class="btn small" ${A({ type: 'propose', to: f.id, kind: 'alliance', target: g.id })} ${p.envoys > 0 ? '' : 'disabled'}>Ally against ${esc(g.name.split(' ').slice(-1)[0])}</button>`).join('')}</div>` : ''}
     </div>`).join('') || '<p class="note">No rival claimant has risen yet.</p>'}
@@ -529,6 +544,7 @@ function legateScreen() {
     ${V.storyLog.length ? `<h2 class="sec">Your story</h2>${V.storyLog.slice(0, 12).map((e) => `<div class="disp"><small>${esc(monthOf(e.t))} · ${esc(e.title)}</small><div><b>${esc(e.choice)}.</b> ${esc(e.text)}</div></div>`).join('')}` : ''}
     <h2 class="sec">Save</h2><p class="note">The game saves itself every month in this browser. A save code moves it to another device.</p>
     <button class="btn block" data-act="export">Make a save code</button><textarea class="code" id="exp" readonly placeholder="Your code appears here"></textarea>
+    <h2 class="sec">Sound</h2><button class="btn block" data-act="sound">${soundOn() ? 'Sound on · tap to mute' : 'Sound off · tap to turn on'}</button>
     <button class="btn block" data-act="title">Title screen</button>
     <button class="btn block" data-act="abandon" style="color:var(--crimson)">Abandon this campaign</button></div>`;
 }
@@ -617,6 +633,7 @@ document.addEventListener('click', async (e) => {
   else if (a === 'decree') doAct({ type: 'decree' });
   else if (a === 'close') { modalOff = V.turn; render(); }
   else if (a === 'later') { eventLater = V.turn; render(); }
+  else if (a === 'sound') { setSound(!soundOn()); if (soundOn()) play('trumpets'); render(); }
   else if (a === 'open-event') { eventLater = -1; render(); }
   else if (a === 'close-sheet') { sel = null; render(); }
   else if (a === 'home') { const ar = V.army; map.focus(ar ? ar.loc : V.player.base, 5); }
@@ -681,7 +698,7 @@ function renderBattle() {
   const cohCard = coh ? `<div class="card gold ccard"><h3>${coh.mine ? '' : 'Enemy: '}${esc(coh.name)} <small>cohort ${['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'][coh.n - 1] || coh.n}${coh.depth >= 0 && coh.depth < 9 ? ' · line ' + (coh.depth + 1) : ''}</small></h3>
     ${coh.mine ? `<div class="mrow2">Men<div class="meter red"><i style="width:${(100 * coh.men) / coh.max}%"></i></div><b>${coh.men}/${coh.max}</b></div><div class="mrow2">Morale<div class="meter"><i style="width:${coh.morale}%"></i></div><b>${coh.morale}</b></div><div class="mrow2">Endurance<div class="meter purple"><i style="width:${coh.end}%"></i></div><b>${coh.end}</b></div><div class="note">Pila ${coh.pila} · ${STATE_WORD[coh.state] || coh.state}</div>`
       : `<div class="note">About ${n(Math.round(coh.men / 50) * 50)} men · ${coh.end >= 70 ? 'fresh' : coh.end >= 35 ? 'tiring' : 'spent'} · ${coh.morale >= 60 ? 'steady' : coh.morale >= 35 ? 'shaken' : 'wavering'}</div>`}</div>` : '';
-  const result = b.over ? `<div class="card gold"><h3>${b.retreated ? 'Retreat' : { won: 'Victory', lost: 'Defeat', draw: 'Neither army broke' }[b.result]}</h3><p class="note">${b.retreated ? 'Your army leaves the field in order and falls back toward your nearest province.' : b.result === 'won' ? 'Their army breaks and runs. Some of their legions will come over to you.' : b.result === 'lost' ? 'Your army breaks. What is left falls back.' : 'Both armies draw off in the dark.'}</p><button class="btn primary block" data-a='{"type":"battleRound"}'>Return to the campaign</button></div>` : '';
+  const result = b.over ? `<div class="card gold"><h3>${b.retreated ? 'Retreat' : { won: 'Victory', lost: 'Defeat', draw: 'Neither army broke' }[b.result]}</h3><div class="vs"><div><small>You lost</small><b>${n(b.losses.mine)}</b> men</div><div><small>They lost</small><b>about ${n(b.losses.theirs)}</b></div></div><p class="note">${b.retreated ? 'Your army leaves the field in order and falls back toward your nearest province.' : b.result === 'won' ? 'Their army breaks and runs. Some of their legions will come over to you.' : b.result === 'lost' ? 'Your army breaks. What is left falls back.' : 'Both armies draw off in the dark.'}</p><button class="btn primary block" data-a='{"type":"battleRound"}'>Return to the campaign</button></div>` : '';
   const controls = b.over ? '' : b.dusk
     ? `<div class="btns"><button class="btn primary" data-a='{"type":"battleDusk","fightOn":true}'>Fight on into the night</button><button class="btn" data-a='{"type":"battleDusk","fightOn":false}'>Break off</button></div><p class="note">At night everything is less certain, and men can hear each other across the lines.</p>`
     : `<button class="btn primary block trumpets" data-a='{"type":"battleRound"}'>Sound the trumpets <small>play one round</small></button><button class="btn block" data-a='{"type":"battleAuto"}'>Leave it to the ${b.present ? 'legates' : 'general'} <small>play it out</small></button>

@@ -16,7 +16,7 @@ export function batch(difficulty, road, starts, n, extraOpts = {}) {
     const seed = 1 + i * 7919 + start.charCodeAt(0) * 31 + start.charCodeAt(1);
     const s = play(seed, { difficulty, road, start, ...extraOpts });
     if (!s.outcome || !(s.turn >= 1)) throw new Error(`run did not finish (${difficulty} ${road} ${start} seed ${seed})`);
-    if (s.outcome.win && !s.stats.tookRome) throw new Error(`win without Rome (${difficulty} ${road} ${start} seed ${seed})`);
+    if (s.outcome.win && !s.outcome.partial && !s.stats.tookRome) throw new Error(`win without Rome (${difficulty} ${road} ${start} seed ${seed})`);
     rows.push({ start, win: s.outcome.win, cause: s.outcome.cause, turn: s.outcome.turn, st: s.stats });
   }
   return rows;

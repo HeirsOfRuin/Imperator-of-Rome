@@ -19,7 +19,7 @@ import { canBuild, candidates, revenueMult, revenueFlat, unrestDelta, levyCostMu
 import { CAPITALS } from '../data/seeds.js';
 import { ORDERS, orderBlocked, sectorState, frontOf, ROUNDS_DAY, ROUNDS_MAX } from './battle.js';
 import { act1Targets, bodyKey, lettersAllowed, romeCosts, TAX_LEVELS } from './actions.js';
-import { standing, treatyBetween, evaluate, seat, clientStatus, canSubvert, subvertCost } from './diplomacy.js';
+import { standing, treatyBetween, evaluate, seat, clientStatus, canSubvert, subvertCost, partitionBlocked } from './diplomacy.js';
 import { decreeCost } from './senate.js';
 
 const cap = (t) => t.charAt(0).toUpperCase() + t.slice(1);
@@ -94,6 +94,7 @@ const ORDER_TEXT = {
 };
 const band3 = (x, a, b) => (x >= b ? 'fresh' : x >= a ? 'tiring' : 'spent');
 
+const lostOf = (side) => Object.values(side.cohorts).filter((c) => !c.id.endsWith('*')).reduce((a, c) => a + Math.max(0, c.max - Math.max(0, c.men)), 0);
 const sideMen = (side) => Object.values(side.cohorts).filter((c) => c.state !== 'routed' && c.state !== 'gone').reduce((a, c) => a + Math.max(0, c.men), 0) + side.cav.reduce((a, c) => a + c.men, 0);
 
 // The field, seen from the player's side: you are always at the bottom, and
@@ -132,7 +133,8 @@ function battleView(s) {
     id: b.id, loc: b.loc, locName: CAPITALS[b.loc] || PROV[b.loc]?.name, round: b.round, rounds: ROUNDS_DAY, maxRounds: ROUNDS_MAX, night: b.round >= ROUNDS_DAY, dusk: b.dusk, over: b.over,
     result: b.over ? (b.winner === 'draw' ? 'draw' : b.winner === youKey ? 'won' : 'lost') : null, retreated: b.retreated === youKey, theyRetreated: !!b.retreated && b.retreated !== youKey, attacking: youKey === 'att',
     enemy: s.factions[foe.fid]?.name, enemyColor: factionColor(s, foe.fid), enemyGeneral: foe.general, enemyGeneralText: GENERAL_TEXT[foe.general],
-    sectors, cohorts, log: b.log.map((l) => l.text), events: (b.lastEvents || []).map((e) => ({ ...e, col: e.sector !== undefined ? toScreen(e.sector) : null, mine: e.side === youKey })),
+    sectors, cohorts, log: b.log.map((l) => l.text), events: (b.lastEvents || []).map((e) => ({ ...e, col: e.sector !== undefined ? toScreen(e.sector) : null, mine: e.side === youKey, ...(e.kind === 'melee' ? { myOrder: youKey === 'att' ? e.oA : e.oD, theirOrder: youKey === 'att' ? e.oD : e.oA } : {}) })),
+    losses: { mine: Math.round(lostOf(you)), theirs: Math.round(lostOf(foe) / 100) * 100 },
     reserve: { count: you.reserve.length, used: you.reserveUsed, order: you.reserveOrder == null ? null : toScreen(you.reserveOrder) },
     cavalry: you.cav.map((c) => ({ pos: c.pos, col: toScreen(c.pos) === 0 ? 'left' : 'right', men: c.men, end: Math.round(c.end), order: c.order, beaten: c.beaten > 0, canPursue: foe.sectors[c.pos].routed })),
     enemyCavalry: foe.cav.map((c) => ({ col: toScreen(c.pos) === 0 ? 'left' : 'right', men: Math.round(c.men / 50) * 50, beaten: c.beaten > 0 })),
@@ -207,7 +209,7 @@ export function view(s) {
       seat: f.alive ? seat(s, f) : null, distance: f.alive && P.alive ? distance(seat(s, P), seat(s, f)) : null,
       treaty: t ? { id: t.id, type: t.type, until: t.until, hostages: t.hostages } : null,
       truce: f.alive ? evaluate(s, f, P, 'truce') : null,
-      tradeEval: f.alive ? evaluate(s, f, P, 'trade') : null, trading: !!tradeBetween(s, 'player', f.id),
+      tradeEval: f.alive ? evaluate(s, f, P, 'trade') : null, partition: f.alive ? { why: partitionBlocked(s, P, f), eval: evaluate(s, f, P, 'partition') } : null, trading: !!tradeBetween(s, 'player', f.id),
       gains: f.alive ? (() => { const g = agreementGains(s, 'player', f.id); return { you: g.a.map((x) => GOODS[x].name), him: g.b.map((x) => GOODS[x].name) }; })() : null,
       cedable: f.alive && s.peace && s.peace[['player', f.id].sort().join('|')] ? ownedProvinces(s, f.id).filter((q) => q.id !== f.base && q.id !== 'ROM' && !Object.values(s.legions).some((l) => l.loc === q.id && l.owner === f.id) && myProvs.some((m) => distance(m.id, q.id) <= 1)).map((q) => ({ id: q.id, name: PROV[q.id].name, eval: evaluate(s, f, P, 'cede', q.id) })) : [],
       personality: PERSONALITY[f.id]?.text || null, favour: Math.round(favour(s, f.id)), hostis: isHostis(s, f.id),

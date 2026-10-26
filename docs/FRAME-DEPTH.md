@@ -58,3 +58,6 @@ grain, wine and oil, metal, horses, timber, luxuries.
   letters (an offer of retirement, as Otho and Vitellius offered each other),
   your family in Rome.
 - Pages when an emperor falls or a new one is recognised.
+
+## Status
+Built and measured 2026-10-26: `docs/DESIGN.md` §16.

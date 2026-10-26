@@ -5,7 +5,7 @@ legionary legate who is not in the history books. Win your province, take the
 legions, march on Rome against Galba, Otho, Vitellius and Vespasian, and hold
 the throne long enough to keep it.
 
-Status: Phase 2 plus the first playtest's fixes: the field, buildings and governors, generals and multiple armies, the month report, and story events.
+Status: Phase 2 plus the first playtest's fixes: the field, buildings and governors, generals and multiple armies, the month report, story events, the Senate, frontier peoples and trade.
 
 - `docs/SPEC.md` — the design spec and decisions log
 - `docs/KILLGATE.md` — what the sim measured, what it changed, open issues

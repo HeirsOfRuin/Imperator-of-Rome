@@ -496,6 +496,22 @@ Dacians), and rivals (an offer of retirement, which can end the campaign; a
 legate for sale). Pages when an emperor is recognised and when one of the
 four dies.
 
+**Measured** (25 campaigns per start and road): Legionary 38%, Centurion 16%,
+Legate 4.7%, on target. Ablation at Centurion (10 per start and road): all
+systems 14.6%; without the Senate 13.2% (no motions, no outlawings: rivals
+lose an average 0.6 outlawings of you per campaign, you lose imperium and the
+decree); without frontier peoples 15.7% (breaches 4.3 → 5.2 a campaign, no
+incitements); without trade 14.6% (same rate, different campaigns). Every
+system changes individual campaigns; because rivals use them too, none moves
+the overall rate much. First tuning casualty: grain originally halved the
+supply-limit losses and pushed Centurion to 28%; it now protects winter
+crossings instead.
+
+**Open.** Road spread widened: on Centurion politics 27% and wealth 21%
+against military 6% and charisma 10% (the Senate and markets reward the first
+two). The measurement bot uses the Senate's honours but never outlaws, incites
+or demands provinces, so those levers are untested by it; they need the author.
+
 **Fixed on the way.** Act I could leave you with nothing to approach for
 months when every other legion stood aside below three-quarters of the men;
 legions standing aside no longer defend the governor.

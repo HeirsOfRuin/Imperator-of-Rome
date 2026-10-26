@@ -1,0 +1,70 @@
+# Publish the installable build to GitHub Pages.
+#
+# - Deploys ONLY from the repository's default branch, read at run time, so the
+#   branch name is never hardcoded: the github-pages environment refuses other
+#   branches, and Silk Road lost eight deploys to that. Pushes to work branches
+#   run the checks and skip the deploy.
+# - ONE-TIME SETUP: Settings > Pages > Source: GitHub Actions. The workflow's
+#   own token may not create a Pages site: configure-pages fails with "Resource
+#   not accessible by integration" (this repo's first deploy, 2026-10-26). The
+#   build and the checks still run and pass; only the upload waits for it.
+# - Rebuilds from source instead of trusting committed output, stamps the build
+#   id, and refuses to upload a site missing its manifest, worker or icons: a
+#   404 manifest makes a browser decline the install without saying why.
+
+name: Pages
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Test
+        run: node tools/check.js && node tools/bot.js 21
+      - name: Build
+        run: node tools/build-site.mjs
+      - name: Check the installable build is complete
+        run: |
+          set -e
+          for f in index.html manifest.webmanifest sw.js icons/icon-192.png icons/icon-512.png icons/maskable-512.png; do
+            test -s "dist/site/$f" || { echo "missing or empty: dist/site/$f"; exit 1; }
+          done
+          ! grep -rl "__BUILD_ID__" dist/site || { echo "build id not stamped"; exit 1; }
+          grep -q 'rel="manifest"' dist/site/index.html
+          echo "site is complete"
+      - if: github.ref_name == github.event.repository.default_branch
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+      - if: github.ref_name == github.event.repository.default_branch
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist/site
+
+  deploy:
+    needs: build
+    if: github.ref_name == github.event.repository.default_branch
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

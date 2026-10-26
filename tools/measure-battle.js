@@ -3,7 +3,7 @@
 // several policies, theirs on a random general type. node tools/measure-battle.js [battles]
 import { setupBattle, autoBattle, aiOrders, orderBlocked, sectorState, ORDERS, GENERALS } from '../src/engine/battle.js';
 import { makeRng } from '../src/engine/rng.js';
-import { seRate } from './stats.js';
+import { seRate } from '../sim/stats.js';
 
 const N = Number(process.argv[2] || 600);
 const legions = (n, tag) => Array.from({ length: n }, (_, i) => ({ id: `${tag}${i}`, men: 4600, exp: 1, loyalty: 60, group: 'rhine' }));

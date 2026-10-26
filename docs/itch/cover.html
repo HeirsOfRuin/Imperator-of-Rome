@@ -1,0 +1,22 @@
+<!doctype html>
+<!-- docs/itch/cover.html: the 630x500 cover, rendered by tools/press.mjs at 2x.
+     Use the game's own palette and type; draw the device with the game's own
+     generator where it has one, so the store art cannot drift from the game. -->
+<html><head><meta charset="utf-8"><style>
+  html, body { margin: 0; width: 630px; height: 500px; overflow: hidden; }
+  /* a dark ground built from the theme colour, whatever the game's own background:
+     light text on a light background was unreadable at listing size (Imperator) */
+  body { background: radial-gradient(ellipse at 50% 40%, color-mix(in srgb, #4E1A45 85%, #fff 15%) 0%, color-mix(in srgb, #4E1A45 45%, #000 55%) 72%); color: #f6efdd;
+         font-family: Georgia, 'Times New Roman', serif; position: relative; }
+  .frame { position: absolute; inset: 14px; border: 1px solid #ffffff33; }
+  .title { position: absolute; top: 150px; width: 100%; text-align: center; font-size: 84px; font-weight: 700;
+           letter-spacing: 1px; text-shadow: 0 3px 0 #0008, 0 0 24px #0006; }
+  .tag { position: absolute; top: 270px; width: 100%; text-align: center; font-style: italic; font-size: 24px; color: #e6dcc4; padding: 0 60px; box-sizing: border-box; }
+  .foot { position: absolute; bottom: 34px; width: 100%; text-align: center; font: 700 14px system-ui, sans-serif;
+          letter-spacing: .3em; text-transform: uppercase; color: #cfc3a6; }
+</style></head><body>
+  <div class="frame"></div>
+  <div class="title">Imperator</div>
+  <div class="tag">A turn-based strategy game of the Roman civil wars, AD 68-71.</div>
+  <div class="foot">Turn-based · Phone or browser · Free</div>
+</body></html>

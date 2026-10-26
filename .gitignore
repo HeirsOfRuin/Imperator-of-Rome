@@ -1,3 +1,9 @@
 .map-cache/
 node_modules/
 *.zip
+out/
+# scratch and output (game-scaffold)
+dist/
+tools/_*
+*.tmp.*
+release/

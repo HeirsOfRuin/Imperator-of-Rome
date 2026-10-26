@@ -7,7 +7,9 @@ const chromium = pw.chromium || pw.default.chromium;
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join } from 'node:path';
-const ROOT = process.env.ROOT || process.cwd();
+// the shipped site (npm run build) when it exists: sw.js there carries a real build id
+import { existsSync } from 'node:fs';
+const ROOT = process.env.ROOT || (existsSync('dist/site/index.html') ? 'dist/site' : process.cwd());
 const T = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.svg': 'image/svg+xml', '.webmanifest': 'application/manifest+json', '.woff2': 'font/woff2' };
 const external = [];
 const srv = createServer(async (q, r) => { const p = join(ROOT, decodeURIComponent(q.url.split('?')[0]).replace(/\/$/, '/index.html')); let d; try { d = await readFile(p); } catch { r.writeHead(404); r.end(); return; } r.writeHead(200, { 'content-type': T[extname(p)] || 'application/octet-stream' }); r.end(d); }).listen(0);

@@ -6,3 +6,4 @@ out/
 dist/
 tools/_*
 *.tmp.*
+release/

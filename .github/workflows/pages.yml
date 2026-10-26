@@ -4,9 +4,10 @@
 #   branch name is never hardcoded: the github-pages environment refuses other
 #   branches, and Silk Road lost eight deploys to that. Pushes to work branches
 #   run the checks and skip the deploy.
-# - Turns Pages on by itself (configure-pages with enablement) on a repo that
-#   has never had it. If Pages is already set to deploy from a branch, switch it
-#   once to Settings > Pages > Source: GitHub Actions.
+# - ONE-TIME SETUP: Settings > Pages > Source: GitHub Actions. The workflow's
+#   own token may not create a Pages site: configure-pages fails with "Resource
+#   not accessible by integration" (this repo's first deploy, 2026-10-26). The
+#   build and the checks still run and pass; only the upload waits for it.
 # - Rebuilds from source instead of trusting committed output, stamps the build
 #   id, and refuses to upload a site missing its manifest, worker or icons: a
 #   404 manifest makes a browser decline the install without saying why.

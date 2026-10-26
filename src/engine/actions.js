@@ -1,3 +1,4 @@
+import { guideAct } from './tutorial.js';
 import { gamesGoodMult } from './trade.js';
 import { addFavour, motion, courtSenate } from './senate.js';
 import { dealWith } from './foreign.js';
@@ -90,6 +91,7 @@ export function act(s, a) {
     case 'split': return splitArmy(s, F, a.armyId, a.general);
     case 'disband': return disband(s, F, a.armyId);
     case 'choose': return chooseEvent(s, a.option);
+    case 'guide': return guideAct(s, a);
     case 'readStory': s.story = (s.story || []).slice(1); return { ok: true };
     case 'readReport': s.report = null; return { ok: true };
     case 'march': {

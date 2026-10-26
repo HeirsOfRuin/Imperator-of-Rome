@@ -181,7 +181,11 @@ canvas.field { display: block; width: 100%; image-rendering: pixelated; touch-ac
 .objective b { color: var(--purple); margin-right: 4px; }
 .objective .btn { margin-left: 6px; padding: 2px 9px; font-size: 12px; }
 .objective.over { position: absolute; left: 8px; right: 8px; top: 8px; z-index: 3; margin: 0; background: rgba(246,244,240,.95); box-shadow: 0 2px 8px rgba(43,40,38,.15); }
-.mapwrap .legend { top: 78px; }
+/* the guide or the Now line, then the legend under it, over the map's top edge */
+.topstack { position: absolute; left: 8px; right: 8px; top: 8px; z-index: 3; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; pointer-events: none; }
+.topstack > * { pointer-events: auto; }
+.topstack .objective { align-self: stretch; margin: 0; background: rgba(246,244,240,.95); box-shadow: 0 2px 8px rgba(43,40,38,.15); }
+.topstack .legend { position: static; }
 .vs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 4px 0 8px; }
 .vs > div { background: var(--grey-1); border-radius: 9px; padding: 7px 9px; font-size: 13px; line-height: 1.35; }
 .vs > div:first-child { border-left: 3px solid var(--scarlet); }
@@ -204,3 +208,8 @@ canvas.field { display: block; width: 100%; image-rendering: pixelated; touch-ac
 details.guide { margin: 12px 0 4px; font-size: 13px; color: var(--grey-6); }
 details.guide summary { color: var(--purple); font-weight: 600; cursor: pointer; }
 details.guide p { margin: 6px 0; }
+.objective.guide { border-color: var(--purple); border-left-color: var(--purple); }
+.objective.guide b { color: var(--scarlet); }
+.nav button.pulse { color: var(--scarlet); animation: pulse 1.4s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: .45; } }
+@media (prefers-reduced-motion: reduce) { .nav button.pulse { animation: none; text-decoration: underline; } }

@@ -15,7 +15,7 @@ const $app = document.getElementById('app');
 let S = null, V = null;
 let screen = 'title';          // title | newgame | game
 let tab = 'map', sel = null, modalOff = -1, toastT = null, pTab = 'overview', eventLater = -1, dTab = 'rivals';
-const ng = { difficulty: 'centurion', start: 'GSU', road: 'politics', custom: false, bg: {}, name: '' };
+const ng = { difficulty: 'centurion', start: 'GSU', road: 'politics', custom: false, bg: {}, name: '', guide: true };
 const map = new MapView((pid) => { if (sel !== pid) pTab = 'overview'; sel = pid; render(); });
 let bChip = 'sector:1', bSel = null, bRoundSeen = -1;
 const field = new FieldView((id) => { bSel = id; render(); });
@@ -90,6 +90,12 @@ function resultText(r) {
   return { cleared: 'Done: they are yours or out of the way.', aside: 'They stand aside for now.', lost: 'Beaten. Your men fall back.', blocked: 'You could not get past.', refused: 'They refuse.', withdrew: 'You fall back.' }[r] || '';
 }
 function refresh() { V = view(S); save(); render(); }
+// the guide watches what you do, including which page you are looking at
+function guideWatch() {
+  if (!S || !V || !V.guide || screen !== 'game') return;
+  const r = act(S, { type: 'guide', ui: { tab, dTab } });
+  if (r && r.moved) setTimeout(refresh, 0);
+}
 
 // ---------- rendering
 function hud() {
@@ -109,7 +115,7 @@ const ICONS = {
 function nav() {
   const tabs = [['map', 'Map'], ['realm', 'Provinces'], ['army', 'Army'], ['diplomacy', 'Powers'], ...(V.rome ? [['rome', 'Rome']] : []), ['dispatches', 'News'], ['legate', 'Legate']];
   const dots = { army: V.pending.length > 0 || (V.act1 && !V.act1.approached), diplomacy: V.offers.length > 0, rome: !!(V.rome && V.rome.plotWarned) };
-  return `<nav class="nav"><div class="nav-in">${tabs.map(([id, label]) => `<button data-tab="${id}" class="${tab === id ? 'on' : ''}"><svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[id]}</svg>${dots[id] ? '<i class="dot"></i>' : ''}${label}</button>`).join('')}</div></nav>`;
+  return `<nav class="nav"><div class="nav-in">${tabs.map(([id, label]) => `<button data-tab="${id}" class="${tab === id ? 'on' : ''}${V.guide && V.guide.tab === id && tab !== id ? ' pulse' : ''}"><svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[id]}</svg>${dots[id] ? '<i class="dot"></i>' : ''}${label}</button>`).join('')}</div></nav>`;
 }
 
 function render() {
@@ -121,6 +127,7 @@ function render() {
   if (V.story) return renderPage(storyPage());
   if (V.event && eventLater !== V.turn) return renderPage(eventPage());
   const body = { map: mapScreen, realm: realmScreen, army: armyScreen, diplomacy: diplomacyScreen, rome: romeScreen, dispatches: dispatchScreen, legate: legateScreen }[tab] || mapScreen;
+  setTimeout(guideWatch, 0);
   $app.innerHTML = hud() + body() + nav() + `<button class="endmonth" data-act="end-turn">End month${V.pending.length ? '<small>undecided: your army falls back</small>' : V.event ? '<small>a decision is waiting</small>' : ''}</button>` + modal();
   if (tab === 'map') {
     const wrap = document.getElementById('mapwrap');
@@ -182,6 +189,7 @@ function renderNewGame() {
     ${ng.custom ? BACKGROUND.map((st) => `<div class="label">${STAGE_LABEL[st.stage]}</div>${st.options.map((o) => `<button class="opt ${ng.bg[st.stage] === o.id ? 'on' : ''}" data-ngbg='${JSON.stringify([st.stage, o.id])}'><b>${OPT_LABEL[o.id] || o.id}</b><em>${effectText(o)}</em></button>`).join('')}`).join('')
       : `<div class="grid2">${Object.entries(ROADS).map(([k, [t, d]]) => `<button class="pick ${ng.road === k ? 'on' : ''}" data-ng='{"road":"${k}"}'><b>${t}</b><small>${d}</small></button>`).join('')}</div><p class="note">A ready-made life that leans this way. Your road is never closed: it is only where you start strongest.</p>`}
     <h2>Your name</h2><input class="name" id="nm" placeholder="Gaius Valerius Corvus" value="${esc(ng.name)}" maxlength="40">
+    <h2>A guide</h2><div class="seg" style="grid-template-columns:1fr 1fr"><button class="${ng.guide ? 'on' : ''}" data-ng='{"guide":true}'>Guide me through the first months</button><button class="${ng.guide ? '' : 'on'}" data-ng='{"guide":false}'>I know the way</button></div>
     <button class="btn primary block" data-act="start" style="margin-top:18px;padding:12px">Take up your command</button>
     <button class="btn block" data-act="title">Back</button></div>`;
 }
@@ -204,9 +212,9 @@ function renderEnd() {
 // ---------- the map
 function mapScreen() {
   const legendOwners = [...new Map(V.provinces.filter((p) => p.owner !== 'state').map((p) => [p.owner, p])).values()];
-  return `<div class="screen mapscreen"><div class="mapwrap" id="mapwrap">${objectiveBar(true)}
+  return `<div class="screen mapscreen"><div class="mapwrap" id="mapwrap">
     <div class="zoom"><button data-zoom="1.4" aria-label="Zoom in">+</button><button data-zoom="0.7" aria-label="Zoom out">−</button><button data-act="home" title="Your army" aria-label="Centre on your army">◎</button></div>
-    <div class="legend">${legendOwners.slice(0, 6).map((p) => `<div><i style="background:${p.color}"></i>${esc(p.owner === 'player' ? 'You' : p.ownerName)}</div>`).join('')}<div><i style="background:#B9BDC3"></i>The Senate</div></div>
+    <div class="topstack">${objectiveBar(false)}<div class="legend">${legendOwners.slice(0, 6).map((p) => `<div><i style="background:${p.color}"></i>${esc(p.owner === 'player' ? 'You' : p.ownerName)}</div>`).join('')}<div><i style="background:#B9BDC3"></i>The Senate</div></div></div>
   </div></div>${sel ? provinceSheet(sel) : V.act1 ? `<div class="sheet"><div class="sheet-in">${act1Card(true)}</div></div>` : ''}`;
 }
 
@@ -290,7 +298,11 @@ function legionRow(l, buttons) {
     <div class="meter ${l.loyalty < 30 ? 'red' : ''}" style="margin-top:3px"><i style="width:${l.loyalty}%"></i></div></div>
     ${buttons || ''}</div>`;
 }
+const TAB_NAME = { army: 'Army', realm: 'Provinces', map: 'Map', diplomacy: 'Powers', rome: 'Rome', dispatches: 'News', legate: 'Legate' };
 function objectiveBar(overlay) {
+  const g = V.guide;
+  if (g) return `<div class="objective guide ${overlay ? 'over' : ''}"><b>Guide ${Math.min(g.index + 1, g.count)}/${g.count}</b> ${esc(g.text)}
+    <div class="btns" style="margin-top:4px">${g.tab && g.tab !== tab ? `<button class="btn small" data-tab="${g.tab}">Open ${TAB_NAME[g.tab]}</button>` : ''}${g.last ? `<button class="btn small" data-a='{"type":"guide","finish":true}'>Finish the guide</button>` : `<button class="btn small" data-a='{"type":"guide","skip":true}'>Skip the guide</button>`}</div></div>`;
   const o = V.objective;
   if (!o) return '';
   const go = V.event ? ' <button class="btn small" data-act="open-event">Open</button>' : o.tab && o.tab !== tab ? ` <button class="btn small" data-tab="${o.tab}">Go</button>` : '';
@@ -593,7 +605,7 @@ document.addEventListener('click', async (e) => {
   else if (a === 'start') {
     const name = document.getElementById('nm')?.value.trim();
     const qs = new URLSearchParams(location.search);
-    S = newGame({ seed: Number(qs.get('seed')) || (Date.now() ^ (Math.random() * 1e9)) >>> 0, difficulty: ng.difficulty, start: ng.start, road: ng.road, background: ng.custom ? ng.bg : undefined, name: name || 'Gaius Valerius Corvus' });
+    S = newGame({ seed: Number(qs.get('seed')) || (Date.now() ^ (Math.random() * 1e9)) >>> 0, difficulty: ng.difficulty, start: ng.start, road: ng.road, background: ng.custom ? ng.bg : undefined, name: name || 'Gaius Valerius Corvus', guide: ng.guide });
     screen = 'game'; tab = V?.act1 ? 'army' : 'map'; sel = null; modalOff = -1; refresh(); tab = 'map'; render(); map.z = 0; map.resize(); map.focus(ng.start, 5);
   } else if (a === 'continue') { S = loadSaved(); if (S) { screen = 'game'; tab = 'map'; refresh(); map.z = 0; map.resize(); map.focus(S.factions.player.leaderArmy && S.armies[S.factions.player.leaderArmy] ? S.armies[S.factions.player.leaderArmy].loc : S.factions.player.base, 5); } }
   else if (a === 'end-turn') doAct({ type: 'endMonth' });

@@ -112,6 +112,26 @@ for (let i = 0; i < N; i++) {
   const v = view(s);
   if (v.dispatches.length === 0) fail('no dispatches were ever visible');
 }
+// the guide: it must walk a real game forward, step by step, to its end
+{
+  let tested = false;
+  for (let seed = 70; seed < 100 && !tested; seed++) {
+    const g = newGame({ seed, difficulty: 'legionary', start: 'SYR', road: 'wealth', guide: true });
+    const seen = [];
+    while (!g.outcome && g.turn < 24) {
+      for (const ui of [{ tab: 'map' }, { tab: 'army' }, { tab: 'realm' }, { tab: 'diplomacy', dTab: 'senate' }]) act(g, { type: 'guide', ui });
+      const v = view(g); if (v.guide && seen[seen.length - 1] !== v.guide.id) seen.push(v.guide.id);
+      if (v.guide && v.guide.id === 'build') { const q = v.provinces.find((p) => p.mine && p.works.some((w) => !w.why)); if (q) act(g, { type: 'build', pid: q.id, building: q.works.find((w) => !w.why).id }); }
+      month(g);
+    }
+    if (g.outcome) continue; // died before the guide could finish: try another campaign
+    tested = true;
+    const v = view(g);
+    console.log(`guide (seed ${seed}): ${seen.join(' > ')}`);
+    if (!v.guide || v.guide.id !== 'done') fail(`the guide stopped at "${v.guide && v.guide.id}"`);
+  }
+  if (!tested) fail('no guided campaign survived long enough to test the guide');
+}
 console.log(`${N} campaigns through the player interface, ${months} months, ${actions} actions; wins ${wins}; endings ${JSON.stringify(ends)}`);
 console.log(fails ? `${fails} failures` : 'ok');
 process.exit(fails ? 1 : 0);

@@ -1,3 +1,4 @@
+import { guideView } from './tutorial.js';
 import { senateView, favour, isHostis } from './senate.js';
 import { peoplesView } from './foreign.js';
 import { goodsView, tradeIncome, partnersOf, agreementGains, tradeBetween } from './trade.js';
@@ -297,6 +298,7 @@ export function view(s) {
   return {
     turn: s.turn, month: monthName(s.turn), act,
     story: s.story && s.story.length ? { ...s.story[0], left: s.story.length - 1 } : null,
+    guide: guideView(s),
     event: eventView(s), storyLog: (s.storyLog || []).slice().reverse(),
     report: s.report ? { ...s.report, month: monthName(s.report.turn), news, warnings } : null,
     senate: senateView(s, P), peoples: peoplesView(s, P), goods: goodsView(s, 'player'), tradeParts: (() => { const t = tradeIncome(s, 'player'); return { market: k(t.market), agreements: k(t.agreements), silk: k(t.silk), total: k(t.total) }; })(),

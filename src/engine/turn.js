@@ -109,6 +109,7 @@ export function newGame(opts) {
   s.factions.player.name = opts.name || 'You';
   s.dispatches.push({ t: 0, loc: opts.start, text: 'March, AD 68. Word comes from Gaul: Julius Vindex, governor of Lugdunensis, has risen against Nero.' });
   s.story = opts.skipStory ? [] : openingPages(s); s.lastAct = 1;
+  if (opts.guide) s.tutorial = { step: 0 };
   return s;
 }
 

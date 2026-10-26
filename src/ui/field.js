@@ -17,6 +17,7 @@ export class FieldView {
     this.onTap = onTap;
     this.canvas = document.createElement('canvas');
     this.canvas.className = 'field';
+    this.canvas.setAttribute('role', 'img');
     this.ctx = this.canvas.getContext('2d');
     this.terrain = null; this.site = null;
     this.prev = null; this.cur = null; this.t0 = 0; this.anim = 1;
@@ -65,6 +66,7 @@ export class FieldView {
 
   update(vb, sel, animate) {
     this.sel = sel;
+    this.canvas.setAttribute('aria-label', `The field near ${vb.locName}, round ${Math.min(vb.round + 1, vb.maxRounds)}. ` + vb.sectors.map((x) => `${x.label}: your ${x.routed ? 'line has broken' : `${x.mine.men} men, morale ${x.mine.morale}`}; theirs about ${x.theirs.men}, ${x.theirs.routed ? 'broken' : x.theirs.shaken}; ${['in contact', 'close', 'far apart'][x.dist]}.`).join(' '));
     if (this.site !== vb.loc) { this.site = vb.loc; this.terrain = this.paintTerrain(vb.loc); }
     const next = { vb, pos: this.layout(vb) };
     if (animate && this.cur && !reduced()) { this.prev = this.cur; this.cur = next; this.t0 = performance.now(); this.anim = 0; }

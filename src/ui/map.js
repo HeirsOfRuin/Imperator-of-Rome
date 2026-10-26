@@ -35,6 +35,7 @@ export class MapView {
     this.onTap = onTap;
     this.canvas = document.createElement('canvas');
     this.canvas.className = 'map';
+    this.canvas.setAttribute('role', 'img');
     this.ctx = this.canvas.getContext('2d');
     this.base = document.createElement('canvas');
     this.base.width = MAP_W; this.base.height = MAP_H;
@@ -76,6 +77,7 @@ export class MapView {
 
   update(V, sel) {
     this.V = V; this.sel = sel;
+    this.canvas.setAttribute('aria-label', mapText(V, sel));
     const sig = V.provinces.map((p) => p.owner).join(',');
     if (sig !== this.sig) { this.sig = sig; this.paintBase(V); }
     this.draw();
@@ -212,4 +214,18 @@ export class MapView {
     c.addEventListener('wheel', (e) => { e.preventDefault(); const p = pos(e); this.zoomAt(p[0], p[1], e.deltaY < 0 ? 1.15 : 1 / 1.15); }, { passive: false });
     window.addEventListener('resize', () => this.resize());
   }
+}
+
+// What the map shows, in words: for screen readers, and anyone who cannot see the colours.
+function mapText(V, sel) {
+  const mine = V.provinces.filter((p) => p.mine).map((p) => p.name);
+  const mineA = (V.myArmies || []).map((a) => `${a.leader ? 'your army' : 'the army of ' + a.commander} at ${a.locName}${a.destName ? ', marching to ' + a.destName : ''}`);
+  const rivals = {};
+  for (const p of V.provinces) if (!p.mine && p.owner !== 'state') (rivals[p.ownerName] = rivals[p.ownerName] || []).push(p.name);
+  const s = V.provinces.find((p) => p.id === sel);
+  return [`Map of the empire, ${V.month}.`,
+    mine.length ? `You hold ${mine.join(', ')}.` : 'You hold no province yet.',
+    mineA.length ? (([t]) => t.charAt(0).toUpperCase() + t.slice(1))([mineA.join('; ')]) + '.' : '',
+    ...Object.entries(rivals).map(([who, ps]) => `${who} holds ${ps.join(', ')}.`),
+    s ? `Selected: ${s.name}.` : 'Tap a province to select it; the Provinces tab lists yours.'].filter(Boolean).join(' ');
 }

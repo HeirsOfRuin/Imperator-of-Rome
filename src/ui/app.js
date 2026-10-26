@@ -109,7 +109,7 @@ const ICONS = {
 function nav() {
   const tabs = [['map', 'Map'], ['realm', 'Provinces'], ['army', 'Army'], ['diplomacy', 'Powers'], ...(V.rome ? [['rome', 'Rome']] : []), ['dispatches', 'News'], ['legate', 'Legate']];
   const dots = { army: V.pending.length > 0 || (V.act1 && !V.act1.approached), diplomacy: V.offers.length > 0, rome: !!(V.rome && V.rome.plotWarned) };
-  return `<nav class="nav"><div class="nav-in">${tabs.map(([id, label]) => `<button data-tab="${id}" class="${tab === id ? 'on' : ''}"><svg viewBox="0 0 24 24">${ICONS[id]}</svg>${dots[id] ? '<i class="dot"></i>' : ''}${label}</button>`).join('')}</div></nav>`;
+  return `<nav class="nav"><div class="nav-in">${tabs.map(([id, label]) => `<button data-tab="${id}" class="${tab === id ? 'on' : ''}"><svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[id]}</svg>${dots[id] ? '<i class="dot"></i>' : ''}${label}</button>`).join('')}</div></nav>`;
 }
 
 function render() {
@@ -205,7 +205,7 @@ function renderEnd() {
 function mapScreen() {
   const legendOwners = [...new Map(V.provinces.filter((p) => p.owner !== 'state').map((p) => [p.owner, p])).values()];
   return `<div class="screen mapscreen"><div class="mapwrap" id="mapwrap">${objectiveBar(true)}
-    <div class="zoom"><button data-zoom="1.4">+</button><button data-zoom="0.7">−</button><button data-act="home" title="Your army">◎</button></div>
+    <div class="zoom"><button data-zoom="1.4" aria-label="Zoom in">+</button><button data-zoom="0.7" aria-label="Zoom out">−</button><button data-act="home" title="Your army" aria-label="Centre on your army">◎</button></div>
     <div class="legend">${legendOwners.slice(0, 6).map((p) => `<div><i style="background:${p.color}"></i>${esc(p.owner === 'player' ? 'You' : p.ownerName)}</div>`).join('')}<div><i style="background:#B9BDC3"></i>The Senate</div></div>
   </div></div>${sel ? provinceSheet(sel) : V.act1 ? `<div class="sheet"><div class="sheet-in">${act1Card(true)}</div></div>` : ''}`;
 }
@@ -220,7 +220,7 @@ function provinceSheet(pid) {
   const others = p.legions.filter((l) => l.owner !== 'player');
   const curTax = p.taxes ? p.taxes.find((t) => t.level === p.tax) : null;
   return `<div class="sheet"><div class="sheet-in">
-    <div class="bar"><div><h3>${esc(p.name)}</h3><div class="sub">${p.mine ? 'Yours' : esc(p.ownerName === 'the Senate' ? 'Loyal to the Senate' : 'Held by ' + p.ownerName)} · ${p.tier === 'italy' ? 'Italy' : p.tier === 'proc' ? 'procurator\'s district' : p.tier + ' province'}</div></div><button class="x" data-act="close-sheet">×</button></div>
+    <div class="bar"><div><h3>${esc(p.name)}</h3><div class="sub">${p.mine ? 'Yours' : esc(p.ownerName === 'the Senate' ? 'Loyal to the Senate' : 'Held by ' + p.ownerName)} · ${p.tier === 'italy' ? 'Italy' : p.tier === 'proc' ? 'procurator\'s district' : p.tier + ' province'}</div></div><button class="x" data-act="close-sheet" aria-label="Close">×</button></div>
     <div class="body">
       <div class="stats4"><div><b>${curTax ? curTax.rev : p.rev}k</b>revenue</div><div><b>${p.grain}</b>grain</div><div class="${p.unrest > 50 ? 'bad' : ''}"><b>${p.unrest}</b>unrest</div><div class="${p.threat >= 60 ? 'bad' : ''}"><b>${p.threat ?? '–'}</b>${p.frontier ? 'frontier' : 'no frontier'}</div></div>
       ${p.breach ? '<p class="note" style="color:var(--crimson)">The frontier has broken here: no revenue for some months.</p>' : ''}
@@ -527,12 +527,12 @@ function modal() {
   if (V.pending.length && tab !== 'army') {
     const pd = V.pending[0];
     if (!pd.defence && !pd.bodies[0]) return '';
-    return `<div class="modal"><div class="modal-in"><div class="bar"><div><h3>${pd.defence ? 'Attacked at ' : ''}${esc(pd.provName)}</h3><div class="sub">${pd.defence ? 'An enemy army is coming at yours' : 'Your army meets resistance'}</div></div><button class="x" data-act="close">×</button></div>
+    return `<div class="modal"><div class="modal-in"><div class="bar"><div><h3>${pd.defence ? 'Attacked at ' : ''}${esc(pd.provName)}</h3><div class="sub">${pd.defence ? 'An enemy army is coming at yours' : 'Your army meets resistance'}</div></div><button class="x" data-act="close" aria-label="Close">×</button></div>
       <div class="body">${pendingCard(pd, true)}</div></div></div>`;
   }
   if (V.offers.length && tab !== 'diplomacy') {
     const o = V.offers[0];
-    return `<div class="modal"><div class="modal-in"><div class="bar"><div><h3>An envoy from ${esc(o.fromName)}</h3></div><button class="x" data-act="close">×</button></div><div class="body">
+    return `<div class="modal"><div class="modal-in"><div class="bar"><div><h3>An envoy from ${esc(o.fromName)}</h3></div><button class="x" data-act="close" aria-label="Close">×</button></div><div class="body">
       <p>He ${offerText(o)}</p>
       <div class="btns"><button class="btn primary" data-choice ${A({ type: 'answer', offerId: o.id, accept: true })}>Accept</button><button class="btn" data-choice ${A({ type: 'answer', offerId: o.id, accept: false })}>Decline</button></div></div></div></div>`;
   }

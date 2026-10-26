@@ -114,7 +114,7 @@ const EVENTS = [
       { label: 'Pay it · 40k', hint: 'Suspicion −15', need: (s, P) => (P.treasury < 40 ? 'Not enough money' : ''), apply: (s, P) => { money(s, P, -40, 'gift to Nero'); P.suspicion = Math.max(0, P.suspicion - 15); return 'Your loyalty is noted in Rome.'; } },
       { label: 'Lose the letter', hint: 'Suspicion +8; your legion likes it, loyalty +3', apply: (s, P) => { P.suspicion += 8; for (const l of ownedLegions(s, 'player')) loy(l, 3); return 'The men hear of it and approve.'; } },
     ] },
-  { id: 'pay-day', act: [1, 2, 3, 4], cooldown: 14, when: (s, P, r) => { const l = r.pick(ownedLegions(s, 'player')); return l ? { legion: l.id } : null; },
+  { id: 'pay-day', act: [1, 2, 3, 4], cooldown: 14, when: (s, P, r) => { const l = r.pick(ownedLegions(s, 'player').filter((x) => x.loyalty < 65)); return l ? { legion: l.id } : null; },
     title: 'The centurions come',
     text: (s, P, c) => `The senior centurions of ${legionName(s.legions[c.legion])} come to your tent. The men have heard what other legions are being paid to choose a side. They want to know what they will get.`,
     options: [

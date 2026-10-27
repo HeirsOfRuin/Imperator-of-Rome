@@ -664,3 +664,36 @@ better than you do.
 Centurion 14.3–16.3%, Legate 4.8–4.9% (Legate hold 24 → 27 months). On the
 author's Act IV save with legitimacy forced to 15, rebellions came about 0.85
 per ten months with no answer, and none when restless men were honoured.
+
+## 20. The Guard: promised on the march, purged in Rome (2026-10-27)
+
+The author: "yes, add the Praetorian replacement. That is super scandalous,
+and really fun!" Vitellius, July 69, cashiered the Guard that had made Otho
+and filled sixteen new cohorts with his German legionaries; the dismissed men
+joined Vespasian. Same rules for every emperor (`src/engine/rome.js`).
+
+**Dismiss the Guard** (Rome tab, once): you must be emperor holding Rome,
+with the Guard yours or the Senate's and one of your legions in the city. Your
+best legion there becomes the Guard (1.3× its men, to 12,000; loyalty 85, 95 on
+the military road; paid three times over). The old Guard, with its men and
+experience, goes to your strongest rival (or scatters to Campania). The
+scandal: the Senate's favour −25, legitimacy −8 (−3 military), the crowd +20.
+The legions cheer: loyalty +5 (+10 military). After it, plots against you are
+half as likely while the Guard is yours.
+
+**Promise the Guard** (Court, once, after you are hailed): every legion's
+loyalty +6 (+10 military) now and +0.5 a month while the promise stands. When
+you are emperor, dismiss the old Guard within four months or the promise is
+broken: every legion −20 loyalty, legitimacy −5. Military-road rivals and
+the measurement player promise when hailed and dismiss the Guard in Rome
+(Vitellius does, as he did).
+
+**Measured, and what it does not fix.** Balance holds (Legionary 34.5%,
+Centurion 13.9–16.2%, Legate 5.0–5.2%). The military road still trails on
+Centurion (9–11% against 14–21%). Its gap is reaching Rome, not keeping it:
+it takes Rome in 43% of campaigns against 62% for wealth, ends with fewer
+legions (19.6 against 23.7) and loses its whole army four times as often
+(17–18 against 4 in 140 runs). Making its test player as cautious as wealth's
+changed nothing, so the cause is in the road, not the bot's appetite. The
+Guard is kept for what it is, a scandal with teeth; the war-phase gap needs
+its own fix.

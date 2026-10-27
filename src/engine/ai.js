@@ -1,4 +1,5 @@
 import { addGeneral, mergeColumns } from './generals.js';
+import { promiseGuard, promiseWhy } from './rome.js';
 import { legionPay } from './world.js';
 import { aiProvinces, levyCostFor, levyMonthsOff } from './buildings.js';
 import { CONFIG } from './config.js';
@@ -187,6 +188,7 @@ export function playerStrategy(s, F) {
   const legs = ownedLegions(s, F.id).length;
   // acclamation
   if (!F.acclaimed && (legs >= F.declareAt || s.turn >= 9 || s.actIVOpen)) acclaim(s, F);
+  if (F.road === 'military' && F.acclaimed && !promiseWhy(s, F) && !(F.kind === 'player' && s.opts.human)) promiseGuard(s, F); // as Vitellius' Germans were promised
   if (s.prov.ROM.owner === F.id) { if (!clearGates(s, F, A)) setDest(s, A, 'ROM'); return; }
   if (A.dest && ['ETR', 'CMP', 'NIT'].includes(A.dest) && A.path.length) return;
   const romeReady = F.acclaimed && readyForRome(s, F);

@@ -2,7 +2,7 @@ import { addFavour, initSenate, isHostis, plotMult, recognitionLegit } from './s
 import { GROUP_OF_PROVINCE } from '../data/world.js';
 import { CONFIG, ROAD_STAT } from './config.js';
 import { ITALY, distance } from './graph.js';
-import { legionName, who, money, hostile, killFaction, log, newLegion, ownedLegions, ownedProvinces, takeLegion } from './core.js';
+import { legionName, who, money, hostile, killFaction, log, newLegion, ownedLegions, ownedProvinces, takeLegion, removeLegion, strengthOf } from './core.js';
 import { history } from './history.js';
 import { loyalty } from './world.js';
 
@@ -53,6 +53,7 @@ export function rome(s) {
 // Holding Rome: conspiracies, generals, the grain dole and the Senate's price.
 // Same rules for any emperor; the player is the one measured.
 export function hold(s) {
+  promiseTurn(s);
   const E = s.emperor && s.factions[s.emperor];
   if (!E || !E.alive || !s.actIVOpen || s.prov.ROM.owner !== E.id) return;
   const r = s.R.events;
@@ -65,9 +66,10 @@ export function hold(s) {
   if (E.road === 'politics' && E.legit < 65 && E.treasury > 300) { money(s, E, -80, 'consulships'); E.legit += 2; } // consulships for friends
   if (E.road === 'charisma' && E.legit < 65 && E.treasury > 250) { money(s, E, -100, 'games'); E.legit += 2; s.romeUnrest = Math.max(0, s.romeUnrest - 10); } // games and largesse
   if (E.road === 'military' && E.legit < 65 && E.treasury > 300) triumph(s, E);
+  if ((E.road === 'military' || E.guardPromise === 'made') && !guardWhy(s, E) && r.chance(E.guardPromise === 'made' ? 0.6 : 0.35)) reformGuard(s, E);
   }
   // conspiracy
-  const plot = Math.max(0, (40 - E.legit) / 120 + s.romeUnrest / 500) * s.diff.plotMult * Math.max(0.6, 1 - 0.05 * italyLegs) * (1 - 0.05 * E.stats[ROAD_STAT[E.road]]) * (s.opts.noSenate ? 1 : plotMult(s, E.id));
+  const plot = Math.max(0, (40 - E.legit) / 120 + s.romeUnrest / 500) * s.diff.plotMult * Math.max(0.6, 1 - 0.05 * italyLegs) * (1 - 0.05 * E.stats[ROAD_STAT[E.road]]) * (s.opts.noSenate ? 1 : plotMult(s, E.id)) * (E.guardReformed !== undefined && s.legions.PRAET?.owner === E.id ? 0.5 : 1);
   E.whispers = plot;
   const best = E.stats[ROAD_STAT[E.road]];
   if (E.plot && E.plot.strikes <= s.turn) {
@@ -131,4 +133,83 @@ export function checks(s) {
   }
   s.stats.maxLegions = Math.max(s.stats.maxLegions, ownedLegions(s, 'player').length);
   if (s.turn >= CONFIG.maxTurns - 1 && !s.outcome) s.outcome = { win: false, cause: 'out of time', turn: s.turn };
+}
+
+// ---------------------------------------------------------------- the new Guard
+// Vitellius, July 69: he cashiered the Praetorians who had made Otho and raised
+// sixteen new cohorts from his own German legionaries. A scandal, and a guard
+// that was his. The cashiered men went over to Vespasian. Same rules for any
+// emperor; the military road gains most (its officers are its own men).
+export function guardWhy(s, F) {
+  const pr = s.legions.PRAET;
+  if (s.emperor !== F.id || s.prov.ROM.owner !== F.id) return 'Only the emperor, holding Rome, can do this';
+  if (F.guardReformed) return 'You have already made the Guard your own';
+  if (!pr) return 'There is no Guard to dismiss';
+  if (pr.owner !== F.id && pr.owner !== 'state') return 'The Guard serves someone else';
+  if (!guardSource(s, F)) return 'You need one of your legions in Rome to fill the new cohorts';
+  return null;
+}
+export function guardSource(s, F) {
+  return Object.values(s.legions).filter((l) => l.owner === F.id && l.loc === 'ROM' && l.id !== 'PRAET' && !l.client && l.group !== 'gaul')
+    .sort((a, b) => b.exp * b.men - a.exp * a.men)[0] || null;
+}
+export function reformGuard(s, F) {
+  const why = guardWhy(s, F);
+  if (why) return { error: why };
+  const pr = s.legions.PRAET, src = guardSource(s, F);
+  const mil = F.road === 'military';
+  // the old Guard, stripped of its belts, goes to whoever will have it
+  const rival = Object.values(s.factions).filter((x) => x.alive && x.kind === 'hist' && x.id !== F.id).sort((a, b) => strengthOf(s, b.id) - strengthOf(s, a.id))[0];
+  const old = newLegion(s, { name: 'The cashiered Praetorians', station: 'ROM', group: 'italy', men: pr.men, exp: pr.exp, owner: rival ? rival.id : 'state', loyalty: 75, loc: rival ? rival.base : 'CMP' });
+  // the new Guard: your legion, swollen with picked men from the rest, at three times the pay
+  if (pr.army) takeLegion(s, pr, pr.owner, pr.loyalty);
+  if (src.army) takeLegion(s, src, src.owner, src.loyalty);
+  Object.assign(pr, { owner: F.id, men: Math.min(12000, Math.round(src.men * 1.3)), exp: Math.max(src.exp, 1.0), loyalty: mil ? 95 : 85, debt: 0, debtDue: -1, loc: 'ROM', station: 'ROM', standAside: {} });
+  removeLegion(s, src);
+  F.guardReformed = s.turn;
+  // the scandal: the Senate and the city; the legions cheer
+  addFavour(s, F.id, -25);
+  F.legit = Math.max(0, F.legit - (mil ? 3 : 8));
+  s.romeUnrest = Math.min(100, s.romeUnrest + 20);
+  for (const l of ownedLegions(s, F.id)) if (l.id !== 'PRAET') l.loyalty = Math.min(100, l.loyalty + (mil ? 10 : 5));
+  if (F.kind === 'player') s.stats.guardReformed = s.turn;
+  s.stats.guardReformedAll = (s.stats.guardReformedAll || 0) + 1;
+  log(s, `guard reformed ${F.id}`, 'ROM', F.kind === 'player'
+    ? `You dismiss the Praetorian Guard. Its men surrender their swords and belts in the camp and walk out of Rome; ${rival ? `they will march for ${rival.name}` : 'they scatter into Campania'}. ${legionName(src)} becomes your Guard. The Senate is appalled; the legions want to be next.`
+    : `${F.name} dismisses the Praetorian Guard and fills its camp with his own legionaries. ${rival ? `The cashiered Guard marches to join ${rival.kind === 'player' ? 'you' : rival.name}.` : 'The cashiered Guard scatters.'}`);
+  void old;
+  return { ok: true };
+}
+
+// The promise: the legions marching on Rome are told the Guard will be theirs.
+// They fight for it; once you hold Rome, keep it within four months or they
+// remember. (Vitellius' Germans expected exactly this, and got it.)
+export const PROMISE_WAIT = 4;
+export function promiseWhy(s, F) {
+  if (F.guardPromise) return F.guardPromise === 'made' ? 'Your legions already have your word' : 'You have made that promise before';
+  if (!F.acclaimed) return 'Be hailed imperator first: only a claimant can promise the Guard';
+  if (s.emperor === F.id) return 'You are emperor: dismiss the Guard instead';
+  return null;
+}
+export function promiseGuard(s, F) {
+  const why = promiseWhy(s, F);
+  if (why) return { error: why };
+  F.guardPromise = 'made';
+  for (const l of ownedLegions(s, F.id)) if (l.id !== 'PRAET') l.loyalty = Math.min(100, l.loyalty + (F.road === 'military' ? 10 : 6));
+  log(s, `guard promised ${F.id}`, null, F.kind === 'player' ? 'You tell the legions that when Rome is taken, the Praetorian camp will be theirs: the Guard\'s pay, the Guard\'s honours. They cheer you until they are hoarse. Now you owe them.' : null);
+  return { ok: true };
+}
+// monthly, with the hold: a promise kept or broken
+export function promiseTurn(s) {
+  for (const F of Object.values(s.factions)) {
+    if (!F.alive || F.guardPromise !== 'made') continue;
+    if (F.guardReformed !== undefined) { F.guardPromise = 'kept'; continue; }
+    if (s.emperor !== F.id) continue;
+    F.promiseWait = (F.promiseWait || 0) + 1;
+    if (F.promiseWait < PROMISE_WAIT) continue;
+    F.guardPromise = 'broken';
+    F.legit = Math.max(0, F.legit - 5);
+    for (const l of ownedLegions(s, F.id)) if (l.id !== 'PRAET') l.loyalty = Math.max(0, l.loyalty - 20);
+    log(s, `guard promise broken ${F.id}`, 'ROM', F.kind === 'player' ? 'The legions were promised the Praetorian camp. The old Guard is still in it. In every camp of your army, men say what they think of your word.' : `${F.name}'s legions were promised the Guard and did not get it.`);
+  }
 }

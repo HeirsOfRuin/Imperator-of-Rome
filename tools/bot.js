@@ -75,6 +75,9 @@ function month(s) {
       const c = q.locals && q.locals[0];
       if (c && view(s).circle.length < view(s).maxCircle) { must(s, { type: 'appoint', pid: q.id, cid: c.id, local: true }, 'appoint'); must(s, { type: 'instr', pid: q.id, instr: s.turn % 2 ? 'balance' : 'develop' }, 'instr'); }
     }
+    // the Guard: promise it once hailed; keep the promise in Rome
+    if (view(s).player.acclaimed && !view(s).guardPromise.why && s.turn % 3 === 0) must(s, { type: 'promiseGuard' }, 'promiseGuard');
+    if (view(s).rome && view(s).rome.guard && !view(s).rome.guard.why && !view(s).rome.guard.done) must(s, { type: 'guard' }, 'guard');
     // restless men: a gift, else a marriage, else a hostage
     for (const id of view(s).circle.filter((x) => x.restless && !x.hostage).map((x) => x.id)) { const m = view(s).circle.find((x) => x.id === id); if (m) must(s, { type: 'honour', cid: id, kind: m.canGift ? 'gift' : m.canMarry ? 'marry' : 'hostage' }, 'honour'); }
     // a big army splits: half to a free general

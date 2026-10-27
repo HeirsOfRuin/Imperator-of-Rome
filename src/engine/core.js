@@ -19,6 +19,7 @@ const LEGION_NAMES = {
 };
 export function legionName(l) {
   if (LEGION_NAMES[l.id]) return LEGION_NAMES[l.id];
+  if (l.name) return l.name;
   if (l.client) { const c = CLIENTS.find((x) => x.id === l.client); return c ? `Men of ${c.name.replace(/^the /, 'the ')}` : 'Allied troops'; }
   if (l.group === 'gaul') return 'Gallic levy';
   return `New legion of ${PROV[l.station]?.name || 'the provinces'}`;
@@ -62,6 +63,7 @@ export function newLegion(s, l) {
     debt: 0, debtDue: -1, payMult: l.payMult ?? 1, standAside: {}, levy: !!l.levy,
   };
   if (l.client) L.client = l.client;
+  if (l.name) L.name = l.name;
   s.legions[L.id] = L;
   return L;
 }

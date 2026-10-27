@@ -120,6 +120,7 @@ export function loyalty(s) {
     if (!l.army && has(s.prov[l.loc], 'castra') && s.prov[l.loc].owner === l.owner) d += 1;
     if (l.bought) d -= 0.7; // bought men stay bought only while the money lasts
     if (F.legit > 60) d += 0.5;
+    if (F.guardPromise === 'made') d += 0.5; // the Guard is promised them
     d += loyaltyGood(s, F.id);
     l.loyalty = Math.max(0, Math.min(100, l.loyalty + d));
   }

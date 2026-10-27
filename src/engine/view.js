@@ -1,4 +1,5 @@
 import { ARMY_ORDERS, ASK_ABOVE } from './orders.js';
+import { guardWhy, guardSource, promiseWhy, PROMISE_WAIT } from './rome.js';
 import { circleOf, governorOf, localMen, MAX_CIRCLE, payroll, postOf, salaryOf, legionsUnder, GIFT_COST, MAX_KIN } from './circle.js';
 import { INSTRUCTIONS, BUDGETS } from './govern.js';
 import { skimmedOf } from './world.js';
@@ -271,6 +272,7 @@ export function view(s) {
     unrest: Math.round(s.romeUnrest), hold: P.hold || 0, holdTarget: s.diff.hold,
     whispers: P.whispers ? Math.round(P.whispers * 100) : 0, plotWarned: !!(P.plot && P.plot.warned), informersPaid: P.informers === s.turn + 1,
     costs: romeCosts(s, P),
+    guard: { why: guardWhy(s, P), done: P.guardReformed !== undefined, from: guardSource(s, P) ? legionName(guardSource(s, P)) : null, military: P.road === 'military' },
     praetorians: s.legions.PRAET ? { owner: s.factions[s.legions.PRAET.owner].name, loyalty: Math.round(s.legions.PRAET.loyalty), debt: k(s.legions.PRAET.debt) } : null,
     grain: Object.values(s.prov).filter((q) => PROV[q.id].grain && (q.owner === s.emperor || q.owner === 'state')).reduce((a, q) => a + PROV[q.id].grain, 0), grainNeed: CONFIG.romeGrainNeed,
   } : null;
@@ -325,6 +327,7 @@ export function view(s) {
     story: s.story && s.story.length ? { ...s.story[0], left: s.story.length - 1 } : null,
     guide: guideView(s),
     event: eventView(s), storyLog: (s.storyLog || []).slice().reverse(),
+    guardPromise: { state: P.guardPromise || null, why: promiseWhy(s, P), wait: PROMISE_WAIT, left: P.guardPromise === 'made' && s.emperor === 'player' ? PROMISE_WAIT - (P.promiseWait || 0) : null, military: P.road === 'military' },
     report: s.report ? { ...s.report, month: monthName(s.report.turn), news, warnings, governors: s.govLog && s.govLog.t === s.report.turn ? s.govLog : null, generals: s.genLog && s.genLog.t === s.report.turn ? s.genLog.lines.slice(0, 8) : null } : null,
     senate: senateView(s, P), peoples: peoplesView(s, P), goods: goodsView(s, 'player'), tradeParts: (() => { const t = tradeIncome(s, 'player'); return { market: k(t.market), agreements: k(t.agreements), silk: k(t.silk), total: k(t.total) }; })(),
     partners: partnersOf(s, 'player').map((x) => s.factions[x]?.name),

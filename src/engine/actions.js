@@ -4,6 +4,7 @@ import { gamesGoodMult } from './trade.js';
 import { addFavour, motion, courtSenate } from './senate.js';
 import { dealWith } from './foreign.js';
 import { build, holdGames, levyCostFor, levyMonthsOff } from './buildings.js';
+import { reformGuard, promiseGuard } from './rome.js';
 import { appointGovernor, hireAndAppoint, relieve, dismiss, honour, addMember, localMen, memberById } from './circle.js';
 import { INSTRUCTIONS, BUDGETS } from './govern.js';
 // Everything a human player can do. The UI calls act(state, action) and reads
@@ -228,6 +229,8 @@ export function act(s, a) {
       if (a.spend === 'informers') F.informers = s.turn + 1; // they work through the coming month, when a warned plot would strike
       return { ok: true };
     }
+    case 'guard': return reformGuard(s, F);
+    case 'promiseGuard': return promiseGuard(s, F);
     case 'battleOrder': case 'battleReserve': case 'battleCav': case 'battleLegate': case 'battleRound': case 'battleAuto': case 'battleDusk': case 'battleRetreat':
       return battleAct(s, a);
     case 'build': return build(s, F, a.pid, a.building);

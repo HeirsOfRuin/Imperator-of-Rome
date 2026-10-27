@@ -531,7 +531,8 @@ function romeScreen() {
       <p class="note">${r.whispers >= 15 ? 'Names are spoken in the Praetorian camp.' : r.whispers >= 5 ? 'There is talk in the Senate. Keep your friends close.' : 'Rome is quiet, for now.'} Low legitimacy and an angry city feed the whispers; legions in Italy and your own strengths quiet them.</p></div>
       <div class="card"><div class="row">The crowd<span class="pill ${r.unrest > 60 ? 'bad' : ''}">${r.unrest}</span></div><div class="row">Grain<span>${r.grain} of ${r.grainNeed}</span></div>${r.praetorians ? `<div class="row">Praetorians<span>loyalty ${r.praetorians.loyalty}${r.praetorians.debt ? ` · owed ${r.praetorians.debt}k` : ''}</span></div>` : ''}</div>
       <div class="label">Spend</div>
-      ${[['dole', 'Grain dole', 'The crowd calms.'], ['senators', 'Buy senators', 'Legitimacy +4; the Senate\'s favour +10.'], ['consulships', 'Consulships for friends', 'Legitimacy +2.'], ['games', 'Games and largesse', 'Legitimacy +2; the crowd calms.'], ['informers', 'Pay informers', 'They may uncover a plot before it strikes.']].map(([k, l, d]) => `<button class="opt" ${A({ type: 'rome', spend: k })}><b>${l} <span>${r.costs[k]}k</span></b><em>${d}</em></button>`).join('')}`
+      ${[['dole', 'Grain dole', 'The crowd calms.'], ['senators', 'Buy senators', 'Legitimacy +4; the Senate\'s favour +10.'], ['consulships', 'Consulships for friends', 'Legitimacy +2.'], ['games', 'Games and largesse', 'Legitimacy +2; the crowd calms.'], ['informers', 'Pay informers', 'They may uncover a plot before it strikes.']].map(([k, l, d]) => `<button class="opt" ${A({ type: 'rome', spend: k })}><b>${l} <span>${r.costs[k]}k</span></b><em>${d}</em></button>`).join('')}
+      ${r.guard.done ? '<p class="note">The Guard is your own men now: plots in the camp are half as likely.</p>' : `<h2 class="sec">The Guard</h2><p class="note">The Praetorians made Otho and murdered Galba. Vitellius dismissed them and filled their camp with his own legionaries.</p>${r.guard.why ? `<p class="note">${esc(r.guard.why)}.</p>` : `<button class="opt" ${A({ type: 'guard' })}><b>Dismiss the Praetorian Guard <span>once</span></b><em>${esc(r.guard.from)} becomes your Guard (paid three times over); plots are half as likely. The Senate's favour −25, legitimacy −${r.guard.military ? 3 : 8}, the crowd +20. Your legions' loyalty +${r.guard.military ? 10 : 5}. The old Guard goes to your strongest rival.</em></button>`}`}`
       : '<p class="note">Take Rome, with no enemy legions in Rome, Etruria or Campania, and the Senate will recognise you if your legitimacy is 25 or more, or if five of your legions stand in Italy.</p>'}
   </div>`;
 }
@@ -562,12 +563,22 @@ function manActions(m) {
   const govern = V.ungoverned.slice(0, 3).map((q) => `<button class="btn small" ${A({ type: 'appoint', pid: q.id, cid: m.id })}>Govern ${esc(q.name)}</button>`).join('');
   return `${govern}<button class="btn small" data-tab="army">Give him an army</button><button class="btn small" ${A({ type: 'dismiss', cid: m.id })}>Dismiss</button>`;
 }
+function guardPromiseCard() {
+  const g = V.guardPromise;
+  if (g.state === 'made') return `<div class="card gold"><h3>The Guard is promised</h3><p class="note">Your legions march for the Praetorian camp. ${g.left !== null ? `Dismiss the old Guard within ${g.left} month${g.left === 1 ? '' : 's'} (Rome tab) or they will know what your word is worth.` : 'When you are emperor in Rome, dismiss the old Guard within ' + g.wait + ' months.'}</p></div>`;
+  if (g.state === 'kept') return '<p class="note">You kept your word: your legionaries hold the Praetorian camp.</p>';
+  if (g.state === 'broken') return '<p class="note warn">You promised your legions the Guard and did not give it to them.</p>';
+  if (g.why && /hailed/.test(g.why)) return '';
+  if (g.why) return '';
+  return `<button class="opt" ${A({ type: 'promiseGuard' })}><b>Promise your legions the Guard <span>once</span></b><em>Every legion's loyalty +${g.military ? 10 : 6} now, and a little more each month. Once you are emperor in Rome, you must dismiss the old Guard within ${g.wait} months, or every legion loses 20 loyalty.</em></button>`;
+}
 function legateScreen() {
   const p = V.player;
   return `<div class="screen"><h2 class="sec">${esc(p.name)}</h2>
     <div class="card">${Object.entries(STAT).map(([k, l]) => `<div class="row">${l}<span style="flex:0 0 55%"><div class="meter"><i style="width:${(p.stats[k] / 7) * 100}%"></i></div></span><b>${p.stats[k]}</b></div>`).join('')}</div>
     <p class="note">Your strongest road: <b>${esc(ROADS[p.road][0])}</b>. ${esc(ROADS[p.road][1])}.${p.comrades ? ` You served as a tribune ${esc(SERVED[p.comrades] || p.comrades)}: those legions remember you.` : ''}</p>
     <div class="card"><div class="row">Legitimacy<span>${p.legit}</span></div><div class="row">Proclaimed<span>${p.acclaimed ? 'Yes' : 'No'}</span></div><div class="row">Borrowed<span>${n(p.borrowed)}k</span></div><div class="row">Difficulty<span>${esc(DIFF[V.difficulty][0])}</span></div></div>
+    ${guardPromiseCard()}
     <h2 class="sec">Your circle · ${V.circle.length} of ${V.maxCircle}</h2>
     <p class="note">The men who govern your provinces and command your armies: one pool for both, as in Rome. Each draws a salary (${n(p.salaries)}k a month in all); unpaid, they turn against you.</p>
     ${V.circle.map((m) => manCard(m, manActions(m))).join('') || '<p class="note">Nobody yet. Men come to you when you take provinces, when rivals submit, and on their own.</p>'}

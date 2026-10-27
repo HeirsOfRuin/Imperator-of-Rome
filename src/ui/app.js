@@ -7,6 +7,7 @@ import { SERVED } from '../engine/story.js';
 import { view } from '../engine/view.js';
 import { toSave, fromSave, SAVE_KEY } from '../engine/save.js';
 import { STARTS, BACKGROUND, PROVINCES } from '../data/world.js';
+import { DIFFICULTY } from '../engine/config.js';
 import { lsGet, lsSet, lsDel, STORAGE_OK } from './storage.js';
 import { registerSW } from './sw-register.js';
 import { MapView } from './map.js';
@@ -171,9 +172,10 @@ function renderTitle() {
 }
 
 const DIFF = {
-  legionary: ['Legionary', 'Rivals slower and fewer; hold Rome 15 months.'],
-  centurion: ['Centurion', 'The war as it was; hold Rome 18 months.'],
-  legate: ['Legate', 'Every rival against the front-runner; hold Rome 24 months.'],
+  // the hold is read from the config: the Legate text said 24 for a day after the hold became 27
+  legionary: ['Legionary', `Rivals slower and fewer; hold Rome ${DIFFICULTY.legionary.hold} months.`],
+  centurion: ['Centurion', `The war as it was; hold Rome ${DIFFICULTY.centurion.hold} months.`],
+  legate: ['Legate', `Every rival against the front-runner; hold Rome ${DIFFICULTY.legate.hold} months.`],
 };
 const START_INFO = {
   BRI: 'Three legions; isolated and safe behind the Channel.', GSU: 'Three legions on the Rhine; Vitellius and Verginius Rufus next door.',

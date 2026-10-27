@@ -4,7 +4,7 @@ import { gamesGoodMult } from './trade.js';
 import { addFavour, motion, courtSenate } from './senate.js';
 import { dealWith } from './foreign.js';
 import { build, holdGames, levyCostFor, levyMonthsOff } from './buildings.js';
-import { appointGovernor, hireAndAppoint, relieve, dismiss, addMember, localMen, memberById } from './circle.js';
+import { appointGovernor, hireAndAppoint, relieve, dismiss, honour, addMember, localMen, memberById } from './circle.js';
 import { INSTRUCTIONS, BUDGETS } from './govern.js';
 // Everything a human player can do. The UI calls act(state, action) and reads
 // view(state); it computes nothing itself. Each action checks what the screen
@@ -240,6 +240,7 @@ export function act(s, a) {
     }
     case 'relieve': return relieve(s, F, a.cid);
     case 'dismiss': return dismiss(s, F, a.cid);
+    case 'honour': return honour(s, F, a.cid, a.kind);
     case 'orders': {
       const X = s.armies[a.armyId];
       if (!X || X.owner !== 'player') return { error: 'Not your army' };

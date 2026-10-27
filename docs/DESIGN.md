@@ -602,3 +602,65 @@ remembered per device.
 
 **Balance after all of it** (25 per start and road): Legionary 33.6% (hold
 14 → 15 months), Centurion 15.6%, Legate 5.3%.
+
+## 19. Your circle: governors, generals, and men who turn (2026-10-27)
+
+The author: "generals and governors should pull from the same pool of
+characters ... given a salary. The governors will then automatically manage
+their provinces based off of their trait and your standing instructions.
+Generals can do that too." And, on the proposal that your own men can rebel
+and that generals settle small fights but ask before large ones: "I agree,
+continue on".
+
+**One circle** (`src/engine/circle.js`), at most 8 men. Each has Governing and
+Command (1–4), a trait (able, honest, greedy, ambitious, timid), a battle
+style (impetuous, cunning, methodical, cautious), loyalty and ambition. Men
+come from your provinces (local men), your past (friends), rivals who submit,
+and the legates of provinces you take. Every man is paid each month with the
+legions: 3k + 1.5k per point of his better skill (+2k if honest); staff half,
+governors + revenue/50, generals + 1k per legion (to 6). Unpaid, loyalty falls
+6 a month.
+
+**Governors** (`govern.js`) run their province each month on a standing
+instruction: balance, exploit, pacify, fortify, develop, or manual. Trait
+bends it: a timid man will not tax heavily, a greedy one will not tax lightly
+and keeps 10% of the revenue. They build from a list for the instruction,
+within the realm's works budget (0/40/80/150k a month), keeping two months'
+pay in reserve. Rivals hire and instruct governors the same way, by road.
+
+**Generals** (`orders.js`) carry out an order each month: hold, guard the
+frontier, expand, hunt, support you, or manual. They settle small encounters
+by their style (each needs different odds to attack; a defender stands at
+three quarters of that). Before a pitched battle above your threshold (10k,
+18k, 30k men, or never) they ask you. On expand, a general leaves his weakest
+legion on a threatened frontier he would otherwise strip.
+
+**Loyalty and ambition.** Loyalty drifts toward 45 + (legitimacy − 40)/2,
++15 for an old friend, +20 for family by marriage, +10 on the military road
+(a soldier's officers are his own men). A man more than three provinces from
+your army loses half a point a month. A general's victories add ambition (+1
+a small fight, +4 a large one, +6 a pitched battle).
+
+**Danger** = (ambition − loyalty)/100 × min(1, legions he holds / 4) × 1.5 if
+your legitimacy is under 40 × difficulty × 0.3. A son held as hostage makes it
+0. At 1.5% a month he is **restless**: you are told, the Court card shows it,
+and the warnings list it. From the next month he may act at that chance. Before
+July 69 he proclaims himself with his legions (and his province, if he
+governs one); after it, he goes over to the strongest claimant. Governors
+without legions may still take an unguarded province when ambition runs 15
+past loyalty and you look weak.
+
+**Counters**: a gift (50k, +10 loyalty, not more than once in three months);
+a marriage tie (two at most: +15 loyalty, −10 ambition, +20 to his loyalty
+target); his son as hostage (no rebellion; −5 loyalty). Relieving a restless
+general with four or more legions provokes him three times in ten.
+
+**The same rules for rivals.** Their men turn too, and they answer with gifts
+when they can afford them. Difficulty scales the player's danger (0.5, 1,
+1.3) and the rivals' (1, 0.8, 0.45): on Legate your rivals keep their men
+better than you do.
+
+**Balance after the three rounds** (start pool, 4 roads): Legionary 34.6–35.7%,
+Centurion 14.3–16.3%, Legate 4.8–4.9% (Legate hold 24 → 27 months). On the
+author's Act IV save with legitimacy forced to 15, rebellions came about 0.85
+per ten months with no answer, and none when restless men were honoured.

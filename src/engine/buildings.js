@@ -90,10 +90,13 @@ export function governorsTurn(s) {
   if (s.actIVOpen) return;
   const r = s.R.events;
   for (const P of Object.values(s.prov)) {
-    if (P.governor?.trait !== 'ambitious') continue;
+    if (!P.governor) continue;
     const F = s.factions[P.owner];
     if (!F || F.kind === 'state' || !F.alive) continue;
-    const weak = F.legit < 25 || P.unrest > 50;
+    const m = (F.circle || []).find((x) => x.id === P.governor.cid);
+    // an unguarded province: a man whose ambition runs past his loyalty may take it (§19)
+    if (m ? (m.hostage || m.ambition - m.loyalty < 15) : P.governor.trait !== 'ambitious') continue;
+    const weak = F.legit < 25 || P.unrest > 50 || (m && m.restless !== undefined);
     if (!weak || !r.chance(0.04)) continue;
     if (Object.values(s.legions).some((l) => l.loc === P.id && l.owner === F.id)) continue; // legions keep him honest
     const G = newFaction(s, { kind: 'proc', road: 'politics', acclaimed: true, rebel: true, base: P.id, legit: 12, treasury: 150, name: P.governor.name });

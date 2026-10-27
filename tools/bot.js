@@ -75,6 +75,10 @@ function month(s) {
       const c = q.locals && q.locals[0];
       if (c && view(s).circle.length < view(s).maxCircle) { must(s, { type: 'appoint', pid: q.id, cid: c.id, local: true }, 'appoint'); must(s, { type: 'instr', pid: q.id, instr: s.turn % 2 ? 'balance' : 'develop' }, 'instr'); }
     }
+    // restless men: a gift, else a marriage, else a hostage
+    for (const id of view(s).circle.filter((x) => x.restless && !x.hostage).map((x) => x.id)) { const m = view(s).circle.find((x) => x.id === id); if (m) must(s, { type: 'honour', cid: id, kind: m.canGift ? 'gift' : m.canMarry ? 'marry' : 'hostage' }, 'honour'); }
+    // a big army splits: half to a free general
+    { const L = view(s).myArmies.find((x) => x.leader); const g = view(s).generals.find((x) => !x.army); if (L && L.legions.length >= 6 && g && !L.halted) must(s, { type: 'split', armyId: L.id, general: g.id }, 'split'); }
     // a general for any army without one, and orders for every general's army
     for (const a of view(s).myArmies.filter((x) => !x.leader && !x.column && !x.canOrder)) { const g = view(s).generals.find((x) => !x.army); if (g) act(s, { type: 'assignGeneral', armyId: a.id, general: g.id }); }
     for (const a of view(s).myArmies.filter((x) => x.canOrder)) must(s, { type: 'orders', armyId: a.id, order: ['expand', 'guard', 'hunt', 'support', 'hold'][(s.turn + a.id.length) % 5] }, 'orders');

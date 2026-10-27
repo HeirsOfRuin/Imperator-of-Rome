@@ -549,11 +549,16 @@ function manCard(m, actions) {
     <div class="row"><span>Governing <span class="stars">${stars(m.admin)}</span></span><span>Command <span class="stars">${stars(m.command)}</span></span></div>
     <p class="note"><b>${esc(m.trait)}</b>: ${esc(m.traitDoes)} <b>${esc(m.style)}</b> in battle.</p>
     <div class="row">${esc(m.loyaltyWord)} · ${esc(m.ambitionWord)}<span>${m.salary}k a month</span></div>
+    ${m.restless ? `<p class="note warn"><b>Restless.</b> His letters grow shorter${m.legions ? `, and ${m.legions} legion${m.legions === 1 ? '' : 's'} would follow him` : ''}. Honour him, bind him to your family, or take his son as a hostage; relieving him now may push him over.</p>` : ''}
+    ${m.kin || m.hostage ? `<p class="note">${m.kin ? 'Married into your family. ' : ''}${m.hostage ? 'His son is at your court: he will not rebel.' : ''}</p>` : ''}
     <div class="meter ${m.loyalty < 35 ? 'red' : ''}"><i style="width:${m.loyalty}%"></i></div>
     ${actions ? `<div class="btns">${actions}</div>` : ''}</div>`;
 }
+function honours(m) {
+  return `${m.canGift ? `<button class="btn small" ${A({ type: 'honour', cid: m.id, kind: 'gift' })}>Gift (50k)</button>` : ''}${m.canMarry ? `<button class="btn small" ${A({ type: 'honour', cid: m.id, kind: 'marry' })}>Marriage tie</button>` : ''}${!m.hostage ? `<button class="btn small" ${A({ type: 'honour', cid: m.id, kind: 'hostage' })}>Son as hostage</button>` : ''}`;
+}
 function manActions(m) {
-  if (m.post) return `<button class="btn small" ${A({ type: 'relieve', cid: m.id })}>Relieve him</button><button class="btn small" ${A({ type: 'dismiss', cid: m.id })}>Dismiss</button>`;
+  if (m.post) return (m.restless || m.loyalty < 50 ? honours(m) : '') + `<button class="btn small" ${A({ type: 'relieve', cid: m.id })}>Relieve him</button><button class="btn small" ${A({ type: 'dismiss', cid: m.id })}>Dismiss</button>`;
   const govern = V.ungoverned.slice(0, 3).map((q) => `<button class="btn small" ${A({ type: 'appoint', pid: q.id, cid: m.id })}>Govern ${esc(q.name)}</button>`).join('');
   return `${govern}<button class="btn small" data-tab="army">Give him an army</button><button class="btn small" ${A({ type: 'dismiss', cid: m.id })}>Dismiss</button>`;
 }

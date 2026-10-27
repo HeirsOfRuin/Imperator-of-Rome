@@ -1,5 +1,5 @@
 import { ARMY_ORDERS, ASK_ABOVE } from './orders.js';
-import { circleOf, governorOf, localMen, MAX_CIRCLE, payroll, postOf, salaryOf } from './circle.js';
+import { circleOf, governorOf, localMen, MAX_CIRCLE, payroll, postOf, salaryOf, legionsUnder, GIFT_COST, MAX_KIN } from './circle.js';
 import { INSTRUCTIONS, BUDGETS } from './govern.js';
 import { skimmedOf } from './world.js';
 import { guideView } from './tutorial.js';
@@ -37,6 +37,8 @@ function manView(s, F, m) {
     id: m.id, name: m.name, origin: m.origin, admin: m.admin, command: m.command, trait: m.trait, traitDoes: TRAITS[m.trait]?.does, style: m.style, styleText: STYLE_TEXT[m.style],
     loyalty: Math.round(m.loyalty), loyaltyWord: LOYAL_WORD(m.loyalty), ambitionWord: AMBITION_WORD(m.ambition), friend: m.friend || null,
     salary: Math.round(salaryOf(s, F, m) * 10) / 10, member: (F.circle || []).includes(m),
+    restless: m.restless !== undefined, kin: !!m.kin, hostage: !!m.hostage, legions: (F.circle || []).includes(m) ? legionsUnder(s, F, m).length : 0,
+    canGift: F.treasury >= GIFT_COST && (m.giftTurn === undefined || s.turn - m.giftTurn >= 3), canMarry: !m.kin && (F.circle || []).filter((x) => x.kin).length < MAX_KIN,
     post: post ? (post.gov ? { kind: 'gov', pid: post.gov, name: PROV[post.gov].name } : { kind: 'gen', army: post.gen, at: PROV[s.armies[post.gen].loc].name }) : null,
   };
 }
@@ -307,6 +309,7 @@ export function view(s) {
     if (f && s.threat[f] >= 70) warnings.push({ kind: 'land', text: `${PROV[q.id].name}: the frontier is under threat (${Math.round(s.threat[f])}). At 100 it breaks; legions there hold it.` });
   }
   for (const a of armies) if (a.over) warnings.push({ kind: 'men', text: `${a.leader ? 'Your army' : 'The army of ' + a.commander} has more than ${CONFIG.supplyLimit} legions: they go hungry and lose men.` });
+  for (const m of circleOf(P)) if (m.restless !== undefined) warnings.push({ kind: 'men', text: `${m.name} is restless${legionsUnder(s, P, m).length ? ` with ${legionsUnder(s, P, m).length} legion${legionsUnder(s, P, m).length === 1 ? '' : 's'} under him` : ''}. See Court: a gift, a marriage or a hostage may hold him.` });
   if (!P.ownsProvince && P.suspicion >= 70) warnings.push({ kind: 'men', text: `Suspicion ${Math.round(P.suspicion)}: at 100 Rome recalls you.` });
 
   const act = actOf(s);

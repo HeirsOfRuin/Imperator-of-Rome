@@ -1,6 +1,6 @@
 import { generalsOrders } from './orders.js';
 import { governorsAct } from './govern.js';
-import { circleTurn } from './circle.js';
+import { circleTurn, ambitionTurn } from './circle.js';
 import { senateTurn, initSenate } from './senate.js';
 import { foreignTurn, initForeign } from './foreign.js';
 import { tradeTurn, initTrade } from './trade.js';
@@ -76,6 +76,7 @@ export function step(s) {
   for (const F of Object.values(s.factions)) if (F.kind !== "state" && F.alive) factionTurn(s, F);
   governorsAct(s);
   circleTurn(s);
+  ambitionTurn(s);
   generalsOrders(s);
   senateTurn(s);
   foreignTurn(s);

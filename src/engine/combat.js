@@ -1,6 +1,7 @@
 import { supportersOf } from './orders.js';
 import { cavalryGoodMult, smallFightGoodMult } from './trade.js';
 import { addFavour } from './senate.js';
+import { fame } from './circle.js';
 import { generalById, generalDies } from './generals.js';
 import { legionPay } from './world.js';
 import { CONFIG, FIGHT_RATIO, NEG_THRESHOLD, ROAD_PREFS } from './config.js';
@@ -228,6 +229,7 @@ export function fight(s, F, A, b, ctx) {
   if (loser.kind === 'player') s.stats.fightsLost++;
   winner.legit = Math.min(100, winner.legit + (large ? (winner.road === 'military' ? 7 : 4) : 1));
   if (large) winner.recentWin = s.turn;
+  if (attWins) fame(s, F, A, large ? 4 : 1); else if (b.kind === 'army') fame(s, D, b.army, large ? 4 : 1);
   loser.legit = Math.max(0, loser.legit - (large ? 6 : 2));
   const winLegs = attWins ? attLegs : (b.kind === 'army' ? b.army.legions.map((id) => s.legions[id]) : b.kind === 'legion' ? [b.legion] : []);
   for (const l of winLegs) l.loyalty = Math.min(100, l.loyalty + (large ? 8 : 4));
@@ -369,6 +371,7 @@ export function concludeBattle(s, b) {
   }
   const attWins = winnerKey === 'att';
   const winner = attWins ? F : D, loser = attWins ? D : F;
+  fame(s, winner, attWins ? A : DA, 6);
   if (b.retreated) {
     // the retreat was sounded: the field is lost, the army is not
     const LA = attWins ? DA : A;

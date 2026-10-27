@@ -63,9 +63,17 @@ export class MapView {
   }
 
   fit() { this.z = Math.max(this.cw / MAP_W, this.ch / MAP_H) ; this.ox = 0; this.oy = (MAP_H - this.ch / this.z) / 2; this.clamp(); }
-  focus(pid, z = 5) {
+  // cover: pixels hidden at the bottom (an open sheet); the place is centred in what is left
+  focus(pid, z = 5, cover = 0) {
     const c = CENTRE[pid]; if (!c) return;
-    this.z = z; this.ox = c[0] - this.cw / this.z / 2; this.oy = c[1] - this.ch / this.z / 2; this.clamp(); this.draw();
+    this.z = z; this.ox = c[0] - this.cw / this.z / 2; this.oy = c[1] - Math.max(40, this.ch - cover) / this.z / 2; this.clamp(); this.draw();
+  }
+  // bring a place into the part of the map a sheet does not hide, at the same zoom
+  reveal(pid, cover = 0) {
+    const c = CENTRE[pid]; if (!c || !this.z) return;
+    const sy = (c[1] - this.oy) * this.z, sx = (c[0] - this.ox) * this.z;
+    if (sy > 50 && sy < this.ch - cover - 20 && sx > 20 && sx < this.cw - 20) return;
+    this.focus(pid, this.z, cover);
   }
   clamp() {
     const minZ = Math.min(this.cw / MAP_W, this.ch / MAP_H);

@@ -417,7 +417,9 @@ export function eventView(s) {
   if (!s.event) return null;
   const e = EVENTS.find((x) => x.id === s.event.id);
   const P = s.factions.player;
-  return { ...s.event, options: s.event.options.map((o, i) => ({ ...o, index: i, why: e.options[i].need ? e.options[i].need(s, P, s.event.c) : '' })) };
+  const c = s.event.c || {};
+  const where = c.prov || (c.legion && s.legions[c.legion]?.loc) || (c.army && s.armies[c.army]?.loc) || null;
+  return { ...s.event, where, options: s.event.options.map((o, i) => ({ ...o, index: i, why: e.options[i].need ? e.options[i].need(s, P, s.event.c) : '' })) };
 }
 
 export function chooseEvent(s, i) {

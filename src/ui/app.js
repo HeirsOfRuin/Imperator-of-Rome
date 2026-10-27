@@ -113,7 +113,7 @@ function guideWatch() {
 // ---------- rendering
 function hud() {
   const p = V.player;
-  return `<div class="hud"><span class="turn">${esc(V.month)}</span><span>${n(p.treasury)}k <b class="${p.balance < 0 ? 'neg' : ''}">${p.balance >= 0 ? '+' : ''}${n(p.balance)}/mo</b></span><span>Legit. <b>${p.legit}</b></span><span class="${p.owed > p.treasury ? 'bad' : ''}">Owed <b>${n(p.owed)}k</b></span></div>`;
+  return `<div class="hud"><span class="turn">${esc(V.month)}</span><span>${n(p.treasury)}k <b class="${p.balance < 0 ? 'neg' : ''}">${p.balance >= 0 ? '+' : ''}${n(p.balance)}/mo</b></span><span>Legit. <b>${p.legit}</b></span><span class="${p.owed > p.treasury ? 'bad' : ''}">Owed <b>${n(p.owed)}k</b></span></div><div class="hud-space"></div>`;
 }
 
 const ICONS = {
@@ -146,7 +146,15 @@ function render() {
     const wrap = document.getElementById('mapwrap');
     map.attach(wrap);
     map.update(V, sel);
+    if (sel) map.reveal(sel, sheetCover());
   }
+  mountMinis();
+}
+// how much of the map an open sheet hides
+function sheetCover() {
+  const sh = document.querySelector('.sheet'), w = document.getElementById('mapwrap');
+  if (!sh || !w) return 0;
+  return Math.max(0, w.getBoundingClientRect().bottom - sh.getBoundingClientRect().top);
 }
 
 // ---------- title and new game
@@ -226,7 +234,7 @@ function renderEnd() {
 // ---------- the map
 function mapScreen() {
   const legendOwners = [...new Map(V.provinces.filter((p) => p.owner !== 'state').map((p) => [p.owner, p])).values()];
-  return `<div class="screen mapscreen"><div class="mapwrap" id="mapwrap">
+  return `<div class="screen mapscreen${sel || V.act1 ? ' covered' : ''}"><div class="mapwrap" id="mapwrap">
     <div class="zoom"><button data-zoom="1.4" aria-label="Zoom in">+</button><button data-zoom="0.7" aria-label="Zoom out">−</button><button data-act="home" title="Your army" aria-label="Centre on your army">◎</button></div>
     <div class="topstack">${objectiveBar(false)}<div class="legend">${legendOwners.slice(0, 6).map((p) => `<div><i style="background:${p.color}"></i>${esc(p.owner === 'player' ? 'You' : p.ownerName)}</div>`).join('')}<div><i style="background:#B9BDC3"></i>The Senate</div></div></div>
   </div></div>${sel ? provinceSheet(sel) : V.act1 ? `<div class="sheet"><div class="sheet-in">${act1Card(true)}</div></div>` : ''}`;
@@ -599,7 +607,7 @@ function modal() {
     const pd = V.pending[0];
     if (!pd.defence && !pd.bodies[0]) return '';
     return `<div class="modal"><div class="modal-in"><div class="bar"><div><h3>${pd.defence ? 'Attacked at ' : ''}${esc(pd.provName)}</h3><div class="sub">${pd.defence ? 'An enemy army is coming at yours' : 'Your army meets resistance'}</div></div><button class="x" data-act="close" aria-label="Close">×</button></div>
-      <div class="body">${pendingCard(pd, true)}</div></div></div>`;
+      <div class="body">${miniMap(pd.prov)}${pendingCard(pd, true)}</div></div></div>`;
   }
   if (V.offers.length && tab !== 'diplomacy') {
     const o = V.offers[0];
@@ -611,7 +619,7 @@ function modal() {
 }
 
 // ---------- pages: the month's report, the story, a choice
-function renderPage(html) { $app.innerHTML = hud() + `<div class="page">${html}</div>`; window.scrollTo(0, 0); }
+function renderPage(html) { $app.innerHTML = hud() + `<div class="page">${html}</div>`; window.scrollTo(0, 0); mountMinis(); }
 const MONEY_WORD = { salaries: 'Salaries', 'skimmed by governors': 'Kept by governors', revenue: 'Taxes', pay: 'Legions\' pay', upkeep: 'Upkeep of works', interest: 'Interest', borrowed: 'Borrowed', "legate's salary": 'Your salary', 'provincial treasury': 'Treasuries seized', 'grain sold to Rome': 'Grain sold' };
 function reportPage() {
   const r = V.report;
@@ -642,9 +650,20 @@ function storyPage() {
     <h2 class="display">${esc(p.title)}</h2>${p.text.map((t) => `<p>${esc(t)}</p>`).join('')}
     <button class="btn primary block" data-a='{"type":"readStory"}'>${p.left ? 'Continue' : 'Begin'}</button></div>`;
 }
+function miniMap(pid) {
+  return pid && PNAME[pid] ? `<div class="minimap" data-mini="${esc(pid)}" aria-hidden="true"><span class="pin">${esc(PNAME[pid])}</span></div>` : '';
+}
+// draw every small map on the page: centred on its province, which is outlined
+function mountMinis() {
+  for (const el of document.querySelectorAll('[data-mini]')) {
+    const m = new MapView(() => {});
+    el.insertBefore(m.canvas, el.firstChild);
+    m.attach(el); m.update(V, el.dataset.mini); m.focus(el.dataset.mini, 3.2);
+  }
+}
 function eventPage() {
   const e = V.event;
-  return `<div class="story event"><div class="laurel">A decision</div><h2 class="display">${esc(e.title)}</h2><p>${esc(e.text)}</p>
+  return `<div class="story event"><div class="laurel">A decision</div><h2 class="display">${esc(e.title)}</h2>${miniMap(e.where)}<p>${esc(e.text)}</p>
     ${e.options.map((o) => `<button class="opt" ${A({ type: 'choose', option: o.index })} ${o.why ? 'disabled' : ''}><b>${esc(o.label)}</b><em>${esc(o.why || o.hint)}</em></button>`).join('')}
     <p class="note">Leave it, and the last answer is taken for you at the month's end.</p>
     <button class="btn block" data-act="later">Decide later</button></div>`;
@@ -656,7 +675,7 @@ document.addEventListener('click', async (e) => {
   if (!t) return;
   if (t.dataset.a) { doAct(JSON.parse(t.dataset.a)); return; }
   if (t.dataset.tab) { tab = t.dataset.tab; if (tab !== 'map') sel = null; render(); return; }
-  if (t.dataset.sel) { sel = t.dataset.sel; pTab = t.dataset.ptab || 'overview'; tab = 'map'; render(); map.focus(sel, 5); return; }
+  if (t.dataset.sel) { sel = t.dataset.sel; pTab = t.dataset.ptab || 'overview'; tab = 'map'; render(); map.focus(sel, 5, sheetCover()); return; }
   if (t.dataset.zoom) { map.zoomAt(map.cw / 2, map.ch / 2, Number(t.dataset.zoom)); return; }
   if (t.dataset.ng) { Object.assign(ng, JSON.parse(t.dataset.ng)); ng.name = document.getElementById('nm')?.value || ng.name; renderNewGame(); return; }
   if (t.dataset.ngbg) { const [st, id] = JSON.parse(t.dataset.ngbg); ng.bg[st] = id; ng.name = document.getElementById('nm')?.value || ng.name; renderNewGame(); return; }

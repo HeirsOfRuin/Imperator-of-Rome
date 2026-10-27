@@ -27,7 +27,9 @@ button:disabled { cursor: default; }
 #app { max-width: 560px; margin: 0 auto; min-height: 100vh; min-height: 100dvh; position: relative; }
 
 /* HUD */
-.hud { position: sticky; top: 0; z-index: 20; height: var(--hud-h); display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 0 10px; background: var(--grey-9); color: var(--silver-2); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.hud-space { height: var(--hud-h); }
+/* fixed, not sticky: it stays on top however the page or its frame scrolls */
+.hud { position: fixed; top: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 560px; box-sizing: border-box; z-index: 40; height: var(--hud-h); display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 0 10px; background: var(--grey-9); color: var(--silver-2); font-size: 12.5px; font-variant-numeric: tabular-nums; }
 .hud b { color: var(--gold-2); font-weight: 600; }
 .hud .turn { color: #fff; font-weight: 600; }
 .hud .bad b { color: #F1A3AD; }
@@ -95,7 +97,16 @@ h2.sec:first-child { margin-top: 4px; }
 .stats4 .bad b { color: var(--crimson); }
 
 /* province sheet */
-.sheet { position: fixed; left: 0; right: 0; bottom: var(--nav-h); z-index: 25; max-height: 64vh; overflow-y: auto; display: flex; justify-content: center; }
+.sheet { position: fixed; left: 0; right: 0; bottom: var(--nav-h); z-index: 25; max-height: 52vh; max-height: 52dvh; overflow-y: auto; overscroll-behavior: contain; display: flex; justify-content: center; align-items: flex-start; }
+/* the sheet's own title stays in view while its contents scroll */
+.sheet .bar, .modal .bar { position: sticky; top: 0; z-index: 2; }
+/* while a sheet is open the map keeps only what helps you find the place */
+.mapscreen.covered .topstack .legend { display: none; }
+.mapscreen.covered .topstack .objective.guide { max-height: 4.6em; overflow: hidden; }
+/* a small map on decisions and encounters: where this is happening */
+.minimap { position: relative; height: 150px; margin: 8px 0 12px; border-radius: 10px; overflow: hidden; border: 1px solid var(--silver); background: rgb(147,166,184); }
+.minimap canvas.map { pointer-events: none; touch-action: auto; }
+.minimap .pin { position: absolute; left: 8px; bottom: 6px; font-size: 12px; background: rgba(246,244,240,.92); border-radius: 6px; padding: 2px 7px; }
 .sheet-in { width: 100%; max-width: 560px; background: var(--grey-0); border-radius: 16px 16px 0 0; box-shadow: 0 -4px 18px rgba(43,40,38,.22); }
 .bar { background: var(--purple); color: var(--gold-2); padding: 10px 14px; border-bottom: 2px solid var(--gold); border-radius: 16px 16px 0 0; display: flex; justify-content: space-between; align-items: start; gap: 8px; }
 .bar h3 { font-size: 17px; color: var(--gold-2); }
@@ -105,8 +116,8 @@ h2.sec:first-child { margin-top: 4px; }
 .label { font-size: 11.5px; color: var(--grey-6); margin: 12px 0 6px; text-transform: uppercase; letter-spacing: .06em; }
 
 /* modal */
-.modal { position: fixed; inset: 0; z-index: 50; background: rgba(43,40,38,.45); display: flex; align-items: flex-end; justify-content: center; }
-.modal-in { width: 100%; max-width: 560px; max-height: 88vh; overflow-y: auto; background: var(--grey-0); border-radius: 16px 16px 0 0; padding-bottom: env(safe-area-inset-bottom); }
+.modal { position: fixed; inset: var(--hud-h) 0 0 0; z-index: 50; background: rgba(43,40,38,.45); display: flex; align-items: flex-end; justify-content: center; }
+.modal-in { width: 100%; max-width: 560px; max-height: 88vh; max-height: 88dvh; overscroll-behavior: contain; overflow-y: auto; background: var(--grey-0); border-radius: 16px 16px 0 0; padding-bottom: env(safe-area-inset-bottom); }
 .modal .body { padding: 8px 14px 16px; }
 
 /* title and new game */

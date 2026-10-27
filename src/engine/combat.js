@@ -1,3 +1,4 @@
+import { supportersOf } from './orders.js';
 import { cavalryGoodMult, smallFightGoodMult } from './trade.js';
 import { addFavour } from './senate.js';
 import { generalById, generalDies } from './generals.js';
@@ -307,11 +308,12 @@ export function generalOf(F) {
 }
 function sideSpec(s, F, A, edge) {
   const g = F.kind === 'player' && A.general ? generalById(F, A.general) : null;
+  const helpers = supportersOf(s, F, A).flatMap((X) => X.legions);
   return {
     fid: F.id, armyId: A.id, general: g ? g.style : generalOf(F), generalId: g ? g.id : null, present: F.kind !== 'player' || A.id === F.leaderArmy,
-    virtus: g ? g.skill : F.stats.virtus, gratia: F.stats.gratia, comrades: F.comrades || null, edge,
+    virtus: g ? g.command : F.stats.virtus, gratia: F.stats.gratia, comrades: F.comrades || null, edge,
     cavalryMult: (F.road === 'military' ? 1.3 : 1) * cavalryGoodMult(s, F.id),
-    legions: A.legions.map((id) => s.legions[id]).filter(Boolean).map((l) => ({ id: l.id, men: l.men, exp: l.exp, loyalty: l.loyalty, group: l.group, client: l.client || null })),
+    legions: [...A.legions, ...helpers].map((id) => s.legions[id]).filter(Boolean).map((l) => ({ id: l.id, men: l.men, exp: l.exp, loyalty: l.loyalty, group: l.group, client: l.client || null })),
   };
 }
 

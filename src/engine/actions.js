@@ -1,8 +1,11 @@
+import { ARMY_ORDERS, ASK_ABOVE } from './orders.js';
 import { guideAct } from './tutorial.js';
 import { gamesGoodMult } from './trade.js';
 import { addFavour, motion, courtSenate } from './senate.js';
 import { dealWith } from './foreign.js';
-import { build, appoint, holdGames, levyCostFor, levyMonthsOff } from './buildings.js';
+import { build, holdGames, levyCostFor, levyMonthsOff } from './buildings.js';
+import { appointGovernor, hireAndAppoint, relieve, dismiss, addMember, localMen, memberById } from './circle.js';
+import { INSTRUCTIONS, BUDGETS } from './govern.js';
 // Everything a human player can do. The UI calls act(state, action) and reads
 // view(state); it computes nothing itself. Each action checks what the screen
 // should already have checked, and returns { ok } or { error } in words.
@@ -228,7 +231,35 @@ export function act(s, a) {
     case 'battleOrder': case 'battleReserve': case 'battleCav': case 'battleLegate': case 'battleRound': case 'battleAuto': case 'battleDusk': case 'battleRetreat':
       return battleAct(s, a);
     case 'build': return build(s, F, a.pid, a.building);
-    case 'governor': return appoint(s, F, a.pid, a.index);
+    // your circle (circle.js) and your governors' standing orders (govern.js)
+    case 'appoint': return a.local ? hireAndAppoint(s, F, a.pid, a.cid) : appointGovernor(s, F, a.pid, a.cid);
+    case 'hire': {
+      const man = localMen(s, a.pid).find((m) => m.id === a.cid);
+      if (!man || s.prov[a.pid].owner !== 'player') return { error: 'He is no longer available' };
+      return addMember(s, F, man, 'from ' + PROV[a.pid].name) ? { ok: true } : { error: 'Your circle is full: dismiss someone first' };
+    }
+    case 'relieve': return relieve(s, F, a.cid);
+    case 'dismiss': return dismiss(s, F, a.cid);
+    case 'orders': {
+      const X = s.armies[a.armyId];
+      if (!X || X.owner !== 'player') return { error: 'Not your army' };
+      if (X.id === F.leaderArmy) return { error: 'You command this army yourself' };
+      if (!X.general) return { error: 'Give the army a general first' };
+      if (!ARMY_ORDERS[a.order]) return { error: 'Unknown order' };
+      X.orders = a.order; X.home = X.loc;
+      if (a.order === 'manual' || a.order === 'hold') { X.dest = null; X.path = []; }
+      return { ok: true };
+    }
+    case 'askAbove':
+      if (!ASK_ABOVE.includes(a.men)) return { error: 'Unknown setting' };
+      F.askAbove = a.men; return { ok: true };
+    case 'instr':
+      if (!mineP) return { error: 'Not your province' };
+      if (!INSTRUCTIONS[a.instr]) return { error: 'Unknown instruction' };
+      P.instr = a.instr; return { ok: true };
+    case 'budget':
+      if (!BUDGETS.includes(a.amount)) return { error: 'Unknown budget' };
+      F.worksBudget = a.amount; return { ok: true };
     case 'games': return holdGames(s, F, a.pid);
     case 'endMonth': return endMonth(s);
     default: return { error: 'Unknown action ' + a.type };

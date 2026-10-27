@@ -1,3 +1,4 @@
+import { payroll, skimOf } from './circle.js';
 import { tradeIncome, loyaltyGood } from './trade.js';
 import { threatGrowthMult } from './foreign.js';
 import { revenueMult, revenueFlat, grainBonus, threatMult, unrestDelta, has } from './buildings.js';
@@ -26,6 +27,9 @@ export function payOf(s, F) {
   return ownedLegions(s, F.id).reduce((a, l) => a + legionPay(s, l), 0);
 }
 
+// what greedy governors keep of what they collect
+export function skimmedOf(s, F) { let x = 0; for (const P of ownedProvinces(s, F.id)) x += skimOf(s, P, provinceRevenue(s, P)); return x; }
+
 export function upkeepOf(s, F) {
   let u = 0;
   for (const P of ownedProvinces(s, F.id)) for (const bid of P.buildings || []) u += BUILDINGS[bid].upkeep;
@@ -34,7 +38,7 @@ export function upkeepOf(s, F) {
 // What a month will do to the purse if nothing else happens.
 export function balanceOf(s, F) {
   if (F.kind === 'player' && !F.ownsProvince) return CONFIG.legateSalary;
-  return incomeOf(s, F) + tradeIncome(s, F.id).total - payOf(s, F) - upkeepOf(s, F) - F.borrowed * CONFIG.interest;
+  return incomeOf(s, F) + tradeIncome(s, F.id).total - payOf(s, F) - payroll(s, F) - skimmedOf(s, F) - upkeepOf(s, F) - F.borrowed * CONFIG.interest;
 }
 
 export function economy(s) {
@@ -51,6 +55,10 @@ export function economy(s) {
     if (F.kind === 'player' && !F.ownsProvince) { money(s, F, CONFIG.legateSalary, "legate's salary"); continue; }
     const pay = legs.reduce((a, l) => a + legionPay(s, l), 0);
     money(s, F, -pay, 'pay');
+    const sal = payroll(s, F);
+    if (sal) money(s, F, -sal, 'salaries');
+    const skim = skimmedOf(s, F);
+    if (skim) money(s, F, -skim, 'skimmed by governors');
     // legions living off their home province: cheaper, but the farmers notice
     for (const P of ownedProvinces(s, F.id)) if (legs.filter((l) => atHome(s, l)).filter((l) => l.loc === P.id).length >= 2) P.unrest = Math.min(100, P.unrest + 1);
     money(s, F, -F.borrowed * CONFIG.interest, 'interest');

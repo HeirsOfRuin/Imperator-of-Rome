@@ -30,12 +30,13 @@ export const KNOWN_NAMES = {
   vindex: 'Gaius Julius Vindex', macer: 'Lucius Clodius Macer', nymphidius: 'Nymphidius Sabinus', capito: 'Fonteius Capito', albinus: 'Lucceius Albinus',
 };
 const PRAENOMINA = ['Gaius', 'Lucius', 'Marcus', 'Publius', 'Quintus', 'Titus', 'Gnaeus', 'Sextus', 'Aulus', 'Decimus'];
+const COGNOMINA = ['Rufus', 'Paullus', 'Gallus', 'Niger', 'Longus', 'Crispus', 'Sabinus', 'Varus', 'Celer', 'Priscus', 'Naso', 'Balbus', 'Pollio', 'Flaccus', 'Severus', 'Firmus', 'Fronto', 'Agricola', 'Marcellus', 'Bassus'];
 const NOMINA = ['Antonius', 'Caecilius', 'Cornelius', 'Fabius', 'Licinius', 'Pompeius', 'Valerius', 'Vettius', 'Pomponius', 'Annius', 'Didius', 'Hordeonius', 'Vipstanus', 'Tettius', 'Numisius', 'Dillius', 'Plotius', 'Arrius', 'Herennius', 'Vibius'];
 // A procedural legate's name, from his id alone (draws nothing from the RNG).
 export function legateName(id) {
   let h = 0x811c9dc5; for (const c of id) h = Math.imul(h ^ c.charCodeAt(0), 0x01000193) >>> 0;
   h = Math.imul(h ^ (h >>> 15), 0x2c1b3c6d) >>> 0;
-  return `${PRAENOMINA[h % PRAENOMINA.length]} ${NOMINA[(h >>> 8) % NOMINA.length]}`;
+  return `${PRAENOMINA[h % PRAENOMINA.length]} ${NOMINA[(h >>> 8) % NOMINA.length]} ${COGNOMINA[(h >>> 16) % COGNOMINA.length]}`;
 }
 
 export function newFaction(s, f) {
@@ -138,8 +139,8 @@ export function armyPower(s, A) {
   const F = s.factions[A.owner];
   let p = 0;
   for (const id of A.legions) p += legionPower(s, s.legions[id]);
-  const g = A.general && (F.generals || []).find((x) => x.id === A.general);
-  const lead = A.id === F.leaderArmy ? 1 + 0.06 * F.stats.virtus : g ? 1 + 0.04 * g.skill : 1 + 0.02 * F.stats.virtus;
+  const g = A.general && (F.circle || []).find((x) => x.id === A.general);
+  const lead = A.id === F.leaderArmy ? 1 + 0.06 * F.stats.virtus : g ? 1 + 0.04 * g.command : 1 + 0.02 * F.stats.virtus;
   return p * lead * (F.kind === 'player' ? s.diff.playerEdge : 1);
 }
 

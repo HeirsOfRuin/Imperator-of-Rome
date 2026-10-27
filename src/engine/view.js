@@ -1,3 +1,7 @@
+import { ARMY_ORDERS, ASK_ABOVE } from './orders.js';
+import { circleOf, governorOf, localMen, MAX_CIRCLE, payroll, postOf, salaryOf } from './circle.js';
+import { INSTRUCTIONS, BUDGETS } from './govern.js';
+import { skimmedOf } from './world.js';
 import { guideView } from './tutorial.js';
 import { senateView, favour, isHostis } from './senate.js';
 import { peoplesView } from './foreign.js';
@@ -15,7 +19,7 @@ import { commanderOf, STYLE_TEXT, armyOfGeneral, MAX_GENERALS } from './generals
 import { eventView } from './story.js';
 import { optionInfo, generalOf } from './combat.js';
 import { BUILDINGS, SLOTS, TRAITS, GAMES_COST } from '../data/buildings.js';
-import { canBuild, candidates, revenueMult, revenueFlat, unrestDelta, levyCostMult, levyMonthsOff, levyCostFor, buildCost, gamesCost } from './buildings.js';
+import { canBuild, revenueMult, revenueFlat, unrestDelta, levyCostMult, levyMonthsOff, levyCostFor, buildCost, gamesCost } from './buildings.js';
 import { CAPITALS } from '../data/seeds.js';
 import { ORDERS, orderBlocked, sectorState, frontOf, ROUNDS_DAY, ROUNDS_MAX } from './battle.js';
 import { act1Targets, bodyKey, lettersAllowed, romeCosts, TAX_LEVELS } from './actions.js';
@@ -23,6 +27,19 @@ import { standing, treatyBetween, evaluate, seat, clientStatus, canSubvert, subv
 import { decreeCost } from './senate.js';
 
 const cap = (t) => t.charAt(0).toUpperCase() + t.slice(1);
+
+// one of your men, as the screens show him
+const LOYAL_WORD = (x) => (x >= 75 ? 'devoted' : x >= 55 ? 'loyal' : x >= 35 ? 'uncertain' : 'disaffected');
+const AMBITION_WORD = (x) => (x >= 65 ? 'ambitious' : x >= 35 ? 'hopes to rise' : 'content');
+function manView(s, F, m) {
+  const post = (F.circle || []).includes(m) ? postOf(s, F, m) : null;
+  return {
+    id: m.id, name: m.name, origin: m.origin, admin: m.admin, command: m.command, trait: m.trait, traitDoes: TRAITS[m.trait]?.does, style: m.style, styleText: STYLE_TEXT[m.style],
+    loyalty: Math.round(m.loyalty), loyaltyWord: LOYAL_WORD(m.loyalty), ambitionWord: AMBITION_WORD(m.ambition), friend: m.friend || null,
+    salary: Math.round(salaryOf(s, F, m) * 10) / 10, member: (F.circle || []).includes(m),
+    post: post ? (post.gov ? { kind: 'gov', pid: post.gov, name: PROV[post.gov].name } : { kind: 'gen', army: post.gen, at: PROV[s.armies[post.gen].loc].name }) : null,
+  };
+}
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 export function monthName(turn) { const m = (2 + turn) % 12, y = 68 + Math.floor((2 + turn) / 12); return `${MONTHS[m]} AD ${y}`; }
@@ -140,7 +157,7 @@ function battleView(s) {
     enemyCavalry: foe.cav.map((c) => ({ col: toScreen(c.pos) === 0 ? 'left' : 'right', men: Math.round(c.men / 50) * 50, beaten: c.beaten > 0 })),
     legate: { action: you.legate.action, target: you.legate.target == null ? 1 : toScreen(you.legate.target), ruseUsed: you.ruseUsed, rallyUsed: you.rallyUsed, gratia: s.factions.player.stats.gratia },
     fromScreen: [0, 1, 2].map(fromScreen),
-    present: you.present !== false, yourGeneral: you.present !== false ? null : ((s.factions.player.generals || []).find((g) => g.id === you.generalId)?.name || 'A senior tribune'),
+    present: you.present !== false, yourGeneral: you.present !== false ? null : ((s.factions.player.circle || []).find((g) => g.id === you.generalId)?.name || 'A senior tribune'),
     yourGeneralText: GENERAL_TEXT[you.general] || STYLE_TEXT[you.general],
     men: { mine: Math.round(sideMen(you)), theirs: Math.round(sideMen(foe) / 100) * 100 },
     retreatCost: sectors.some((x) => x.dist === 0) ? Math.round(CONFIG.retreatLoss[0] * 100) : Math.round(CONFIG.retreatLoss[1] * 100),
@@ -191,8 +208,9 @@ export function view(s) {
       building: q.building ? { id: q.building.id, name: BUILDINGS[q.building.id].name, done: monthName(q.building.done) } : null,
       slots: SLOTS[d.tier],
       works: mine ? Object.entries(BUILDINGS).map(([id, B]) => ({ id, name: B.name, latin: B.latin, cost: buildCost(s, 'player', id), months: B.months, upkeep: B.upkeep, does: B.does, why: canBuild(s, P, d.id, id), built: (q.buildings || []).includes(id) })) : null,
-      governor: q.governor ? { name: q.governor.name, trait: q.governor.trait, does: TRAITS[q.governor.trait].does, friend: q.governor.friend || null } : null,
-      candidates: mine ? candidates(s, d.id).map((c, i) => ({ index: i, name: c.name, trait: c.trait, does: TRAITS[c.trait].does, friend: c.friend || null })) : null,
+      governor: q.governor ? (governorOf(s, q) && q.owner === 'player' ? manView(s, P, governorOf(s, q)) : { name: q.governor.name, trait: q.governor.trait, does: TRAITS[q.governor.trait].does, friend: q.governor.friend || null }) : null,
+      instr: q.instr || 'balance',
+      locals: mine ? localMen(s, d.id).map((m) => ({ ...manView(s, P, m), salaryIfGov: Math.round(3 + 1.5 * Math.max(m.admin, m.command) + (m.trait === 'honest' ? 2 : 0) + d.rev / 50) })) : null,
       revMult: Math.round((revenueMult(q) - 1) * 100), revFlat: revenueFlat(q), unrestMod: unrestDelta(q),
       gamesCost: gamesCost(s, 'player'), games: q.gamesTurn === s.turn,
       levyCost: k(levyCostFor(s, 'player', q)), levyMonths: CONFIG.levyMonths - (d.id === 'AFR' ? 1 : 0) - levyMonthsOff(q),
@@ -266,13 +284,15 @@ export function view(s) {
       commander: c.name, style: c.style, styleText: c.style ? STYLE_TEXT[c.style] : null, generalId: c.id || null,
       men: x.legions.reduce((a, id) => a + s.legions[id].men, 0), power: k(armyPower(s, x) / 1000), over: x.legions.length > CONFIG.supplyLimit,
       halted: s.pending.some((p) => p.army === x.id), waiting: (x.wait || 0) > 0,
+      orders: x.orders || 'manual', canOrder: !!x.general && x.id !== P.leaderArmy && !x.column,
       legions: x.legions.map((id) => legionView(s, s.legions[id])),
     };
   }).sort((a, b) => (b.leader - a.leader) || (a.column - b.column) || b.men - a.men);
   const garrisonsByProv = {};
   for (const l of myLegs.filter((x) => !x.army)) (garrisonsByProv[l.loc] = garrisonsByProv[l.loc] || []).push(legionView(s, l));
   const garrisons = Object.entries(garrisonsByProv).map(([pid, legs]) => ({ pid, name: PROV[pid].name, legions: legs, armiesHere: armies.filter((a) => a.loc === pid && !a.column).map((a) => a.id) }));
-  const generals = (P.generals || []).map((g) => { const A = armyOfGeneral(s, g.id); return { ...g, styleText: STYLE_TEXT[g.style], army: A ? A.id : null, armyAt: A ? PROV[A.loc].name : null }; });
+  const circle = circleOf(P).map((m) => manView(s, P, m));
+  const generals = (P.circle || []).filter((g) => !postOf(s, P, g)?.gov).map((g) => { const A = armyOfGeneral(s, g.id); return { ...g, skill: g.command, styleText: STYLE_TEXT[g.style], army: A ? A.id : null, armyAt: A ? PROV[A.loc].name : null }; });
 
   const warnings = [];
   for (const l of myLegs) {
@@ -302,14 +322,17 @@ export function view(s) {
     story: s.story && s.story.length ? { ...s.story[0], left: s.story.length - 1 } : null,
     guide: guideView(s),
     event: eventView(s), storyLog: (s.storyLog || []).slice().reverse(),
-    report: s.report ? { ...s.report, month: monthName(s.report.turn), news, warnings } : null,
+    report: s.report ? { ...s.report, month: monthName(s.report.turn), news, warnings, governors: s.govLog && s.govLog.t === s.report.turn ? s.govLog : null, generals: s.genLog && s.genLog.t === s.report.turn ? s.genLog.lines.slice(0, 8) : null } : null,
     senate: senateView(s, P), peoples: peoplesView(s, P), goods: goodsView(s, 'player'), tradeParts: (() => { const t = tradeIncome(s, 'player'); return { market: k(t.market), agreements: k(t.agreements), silk: k(t.silk), total: k(t.total) }; })(),
     partners: partnersOf(s, 'player').map((x) => s.factions[x]?.name),
     warnings, objective, myArmies: armies, garrisons, generals, maxGenerals: MAX_GENERALS,
+    armyOrders: ARMY_ORDERS, askAbove: P.askAbove ?? CONFIG.largeBattleMen, askOptions: ASK_ABOVE,
+    circle, maxCircle: MAX_CIRCLE, instructions: INSTRUCTIONS, budgets: BUDGETS, worksBudget: P.worksBudget ?? 80,
+    ungoverned: myProvs.filter((q) => !q.governor).map((q) => ({ id: q.id, name: PROV[q.id].name, rev: PROV[q.id].rev })).sort((a, b) => b.rev - a.rev),
     difficulty: s.opts.difficulty, outcome: s.outcome,
     player: {
       name: P.name, alive: P.alive, road: P.road, stats: P.stats, legit: Math.round(P.legit), treasury: k(P.treasury), borrowed: k(P.borrowed),
-      owed: k(debtTotal(s, 'player')), income: k(income), trade: k(tradeIncome(s, 'player').total), pay: k(pay), upkeep: k(upkeep), interest: k(P.borrowed * CONFIG.interest), balance: k(balance), acclaimed: P.acclaimed, decree: !!P.decree, decreeCost: decreeCost(P),
+      owed: k(debtTotal(s, 'player')), income: k(income), trade: k(tradeIncome(s, 'player').total), salaries: k(payroll(s, P)), skimmed: k(skimmedOf(s, P)), pay: k(pay), upkeep: k(upkeep), interest: k(P.borrowed * CONFIG.interest), balance: k(balance), acclaimed: P.acclaimed, decree: !!P.decree, decreeCost: decreeCost(P),
       ownsProvince: P.ownsProvince, base: P.base, comrades: P.comrades, friends: P.friends || [],
       letters: lettersAllowed(P) - (P.letterTurn === s.turn ? P.lettersUsed : 0), envoys: (P.road === 'politics' ? 2 : 1) - (P.envoyTurn === s.turn ? P.envoys : 0),
       levy: P.levy ? { at: P.levy.at, done: monthName(P.levy.done) } : null, emperor: s.emperor === 'player',

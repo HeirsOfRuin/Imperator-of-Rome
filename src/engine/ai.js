@@ -219,7 +219,7 @@ export function humanUpkeep(s, F) {
   // no gathering: your legions go where you send them (generals.js)
   if (!F.leaderArmy || !s.armies[F.leaderArmy]) leaderArmyOf(s, F);
   // the province falls: one of your legates swears to you (saves from before generals get him too)
-  if (!F.generals) addGeneral(s, F, { id: 'G-first', how: 'when your province falls: a legate of one of your legions' });
+  if (!F.firstGeneral) { F.firstGeneral = true; addGeneral(s, F, { id: 'G-first', how: 'when your province falls: a legate of one of your legions' }); }
   mergeColumns(s, F.id);
 }
 

@@ -5,7 +5,8 @@ import { CONFIG } from './config.js';
 // measured by `npm run measure:buildings` (sim/ablations/buildings.js) (an effect nobody wants gets cut).
 import { BUILDINGS, SLOTS, TRAITS, GAMES_COST } from '../data/buildings.js';
 import { PROV, ADJ } from './graph.js';
-import { money, log, legateName, newFaction, ownedProvinces, ownedLegions, strengthOf } from './core.js';
+import { money, log, newFaction, ownedProvinces, ownedLegions, strengthOf } from './core.js';
+import { addMember, appointGovernor, governorOf, localMen, postOf, removeMember } from './circle.js';
 
 export const has = (P, id) => !!P.buildings && P.buildings.includes(id);
 
@@ -84,33 +85,6 @@ export function harbourAt(s, pid) { return has(s.prov[pid], 'harbour'); }
 
 // ---------------------------------------------------------------- governors
 
-const TRAIT_KEYS = Object.keys(TRAITS);
-function hash(str) { let h = 0x811c9dc5; for (const c of str) h = Math.imul(h ^ c.charCodeAt(0), 0x01000193) >>> 0; return Math.imul(h ^ (h >>> 13), 0x5bd1e995) >>> 0; }
-// three men who would take the post; one may be a friend from your past
-export function candidates(s, pid) {
-  const P = s.prov[pid];
-  const F = s.factions[P.owner];
-  const seed = `${pid}|${P.ownedSince ?? 0}|${s.seed}`;
-  const out = [0, 1, 2].map((i) => {
-    const h = hash(seed + i);
-    return { name: legateName(`${seed}#${i}`), trait: TRAIT_KEYS[(h >>> 3) % TRAIT_KEYS.length] };
-  });
-  if (F && F.kind === 'player' && (F.friends || []).length) {
-    const fr = F.friends[hash(pid) % F.friends.length];
-    out[2] = { name: legateName(`friend|${fr}|${s.seed}`), trait: fr === 'banker' ? 'greedy' : fr === 'senator' ? 'honest' : 'able', friend: fr };
-  }
-  return out;
-}
-
-export function appoint(s, F, pid, idx) {
-  const P = s.prov[pid];
-  if (P.owner !== F.id) return { error: 'Not your province' };
-  const c = candidates(s, pid)[idx];
-  if (!c) return { error: 'No such man' };
-  P.governor = { ...c, since: s.turn };
-  return { ok: true };
-}
-
 // an ambitious governor may claim the province when his master looks weak
 export function governorsTurn(s) {
   if (s.actIVOpen) return;
@@ -123,52 +97,56 @@ export function governorsTurn(s) {
     if (!weak || !r.chance(0.04)) continue;
     if (Object.values(s.legions).some((l) => l.loc === P.id && l.owner === F.id)) continue; // legions keep him honest
     const G = newFaction(s, { kind: 'proc', road: 'politics', acclaimed: true, rebel: true, base: P.id, legit: 12, treasury: 150, name: P.governor.name });
+    removeMember(s, F, P.governor.cid, null);
     P.owner = G.id; P.governor = null;
     s.stats.procSpawned++;
     log(s, `governor of ${P.id} rebels`, P.id, `${G.name}, your governor of ${PROV[P.id].name}, claims the province for himself.`);
   }
 }
 
-// AI (and the measuring bot): build what suits the road, appoint the first able man
+// What a work is worth in a province, per 100k of cost and a year's upkeep:
+// the judgement a governor on Balance uses (and every rival's governors).
 const WANT = {
   wealth: ['road', 'mint', 'granary', 'harbour', 'temple'],
   military: ['castra', 'dilectus', 'limes', 'road'],
   politics: ['temple', 'mint', 'road', 'granary'],
   charisma: ['temple', 'granary', 'road', 'castra'],
 };
+export function workValue(s, F, P, bid) {
+  const d = PROV[P.id], B = BUILDINGS[bid];
+  let v = 0;
+  if (bid === 'road') v = d.rev * 0.08 * 12;
+  if (bid === 'mint') v = 40 * 12 + 30;
+  if (bid === 'granary') v = (P.unrest > 15 ? 60 : 20) + (d.grain ? 80 : 0);
+  if (bid === 'temple') v = 60 + (F.legit < 40 ? 60 : 0) + (P.unrest > 25 ? 30 : 0);
+  if (bid === 'castra') v = (d.tier === 'legion' ? 70 : 20) + (d.frontier ? 30 : 0);
+  if (bid === 'limes') v = d.frontier ? Math.max(0, (s.threat[d.frontier] - 25) * 4) : 0;
+  if (bid === 'dilectus') v = ['legion', 'grain'].includes(d.tier) && ownedLegions(s, F.id).length < 8 ? 90 : 10;
+  if (bid === 'harbour') v = ADJ[P.id].some((e) => e.kind === 'sea') ? 30 + d.grain * 40 : 0;
+  v *= (WANT[F.road] || []).includes(bid) ? 1.5 : 1;
+  return v / (B.cost + B.upkeep * 12);
+}
+
+// Rivals and the measuring bot: a governor from their own circle in every
+// province, standing orders that suit their road, a works budget they can afford.
+const ROAD_INSTR = { wealth: 'exploit', military: 'fortify', politics: 'balance', charisma: 'balance' };
 export function aiProvinces(s, F) {
   if (s.opts.noBuildings) return;
-  const provs = ownedProvinces(s, F.id);
-  for (const P of provs) if (!P.governor) {
-    const cs = candidates(s, P.id);
-    const pick = cs.findIndex((c) => c.trait === 'able' || c.trait === 'honest');
-    P.governor = { ...cs[Math.max(0, pick)], since: s.turn };
+  for (const P of ownedProvinces(s, F.id)) {
+    if (!P.governor || !governorOf(s, P)) {
+      const men = localMen(s, P.id);
+      const pick = men.find((m) => m.trait === 'able' || m.trait === 'honest') || men[0];
+      if (pick && addMember(s, F, pick, null)) appointGovernor(s, F, P.id, pick.id);
+      else {
+        // circle full: a free man of the circle takes it, else a deputy keeps the books
+        const free = (F.circle || []).find((m) => !postOf(s, F, m));
+        if (free) appointGovernor(s, F, P.id, free.id);
+      }
+    }
+    if (P.governor) P.instr = P.unrest > 55 ? 'pacify' : ROAD_INSTR[F.road] || 'balance';
   }
   const reserve = ownedLegions(s, F.id).reduce((a, l) => a + l.men * 0.0188 * l.payMult, 0) * 3;
-  if (F.treasury < reserve + 300) return;
-  // value of each work in each province, by what it would do there (per 100k)
-  const road = F.road;
-  const val = (bid, P) => {
-    const d = PROV[P.id], B = BUILDINGS[bid];
-    let v = 0;
-    if (bid === 'road') v = d.rev * 0.08 * 12;
-    if (bid === 'mint') v = 40 * 12 + 30;
-    if (bid === 'granary') v = (P.unrest > 15 ? 60 : 20) + (d.grain ? 80 : 0);
-    if (bid === 'temple') v = 60 + (F.legit < 40 ? 60 : 0) + (P.unrest > 25 ? 30 : 0);
-    if (bid === 'castra') v = (d.tier === 'legion' ? 70 : 20) + (d.frontier ? 30 : 0);
-    if (bid === 'limes') v = d.frontier ? Math.max(0, (s.threat[d.frontier] - 25) * 4) : 0;
-    if (bid === 'dilectus') v = ['legion', 'grain'].includes(d.tier) && ownedLegions(s, F.id).length < 8 ? 90 : 10;
-    if (bid === 'harbour') v = ADJ[P.id].some((e) => e.kind === 'sea') ? 30 + d.grain * 40 : 0;
-    v *= (WANT[road] || []).includes(bid) ? 1.5 : 1;
-    return v / (B.cost + B.upkeep * 12);
-  };
-  let best = null, bv = 0.12;
-  for (const P of provs) for (const bid of Object.keys(BUILDINGS)) {
-    if (canBuild(s, F, P.id, bid) || F.treasury - BUILDINGS[bid].cost < reserve) continue;
-    const v = val(bid, P);
-    if (v > bv) { bv = v; best = [P.id, bid]; }
-  }
-  if (best) build(s, F, best[0], best[1]);
+  F.worksBudget = F.treasury > reserve + 300 ? 150 : F.treasury > reserve ? 40 : 0;
 }
 
 export function holdGames(s, F, pid) {

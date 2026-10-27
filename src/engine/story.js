@@ -221,7 +221,7 @@ const EVENTS = [
       { label: 'Send the money · 60k', hint: 'Legitimacy +5', need: (s, P) => (P.treasury < 60 ? 'Not enough money' : ''), apply: (s, P) => { money(s, P, -60, 'senators'); legit(P, 5); return 'Your name is spoken kindly in the curia.'; } },
       { label: 'Refuse', hint: 'No effect', apply: () => 'You will need the Senate later. Perhaps.' },
     ] },
-  { id: 'legate-swears', act: [2, 3, 4], cooldown: 6, when: (s, P, r) => { if ((P.generals || []).length >= MAX_GENERALS) return null; const l = r.pick(ownedLegions(s, 'player')); return l ? { legion: l.id, gid: 'G' + l.id + s.turn } : null; },
+  { id: 'legate-swears', act: [2, 3, 4], cooldown: 6, when: (s, P, r) => { if ((P.circle || []).length >= MAX_GENERALS) return null; const l = r.pick(ownedLegions(s, 'player')); return l ? { legion: l.id, gid: 'G' + l.id + s.turn } : null; },
     title: 'A legate offers his sword',
     text: (s, P, c) => `${legateName(c.gid)}, who commands ${legionName(s.legions[c.legion])}, comes to your tent after dark. He has watched you, he says, and he would rather rise with you than with anyone else. He asks for an army.`,
     options: [

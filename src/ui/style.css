@@ -213,3 +213,5 @@ details.guide p { margin: 6px 0; }
 .nav button.pulse { color: var(--scarlet); animation: pulse 1.4s ease-in-out infinite; }
 @keyframes pulse { 50% { opacity: .45; } }
 @media (prefers-reduced-motion: reduce) { .nav button.pulse { animation: none; text-decoration: underline; } }
+.card.man h3 { flex-wrap: wrap; }
+.stars { color: var(--gold); letter-spacing: 1px; font-size: 13px; }

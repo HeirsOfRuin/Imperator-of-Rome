@@ -1,3 +1,5 @@
+import { asksFirst, commanded, generalDefends, generalResolve } from './orders.js';
+import { fight } from './combat.js';
 import { supplyGoodMult } from './trade.js';
 import { mergeColumns } from './generals.js';
 import { CONFIG } from './config.js';
@@ -55,6 +57,13 @@ export function engage(s, A, pid, destination) {
     bodies.sort((a, b) => (a.kind === 'army' ? 0 : a.kind === 'legion' ? 1 : 2) - (b.kind === 'army' ? 0 : b.kind === 'legion' ? 1 : 2));
     const b = bodies[0];
     if (F.kind === 'player' && s.opts.human) {
+      // a general on orders settles it himself, unless it is a pitched battle you want to decide
+      if (commanded(s, F, A) && !asksFirst(s, F, A, b)) {
+        const res = generalResolve(s, F, A, b, { destination });
+        if (res === 'battle') return 'halt';
+        if (res === 'lost' || res === 'blocked') return res;
+        continue;
+      }
       if (!s.pending.some((p) => p.army === A.id)) s.pending.push({ id: s.nextId++, army: A.id, prov: pid, destination, turn: s.turn });
       return 'halt';
     }
@@ -65,6 +74,14 @@ export function engage(s, A, pid, destination) {
       const ratio = armyPower(s, A) / Math.max(1, armyPower(s, b.army));
       const need = Math.min(1, FIGHT_RATIO[F.road] / Math.max(0.6, F.kind === 'player' ? 1 : s.diff.aiAggr));
       if (ratio < need) return 'blocked';
+      const P = s.factions.player;
+      if (commanded(s, P, b.army) && !asksFirst(s, P, b.army, { kind: 'army', army: A })) {
+        if (generalDefends(s, P, b.army, A) === 'withdrew') continue;
+        const res = fight(s, F, A, { kind: 'army', army: b.army }, { destination: true });
+        if (res === 'battle') return 'halt';
+        if (res === 'lost' || res === 'blocked') return res;
+        continue;
+      }
       if (!s.pending.some((p) => p.attacker === A.id)) s.pending.push({ id: s.nextId++, army: b.army.id, prov: pid, defence: true, attacker: A.id, turn: s.turn });
       return 'halt';
     }

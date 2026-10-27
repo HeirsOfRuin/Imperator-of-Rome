@@ -70,6 +70,14 @@ function month(s) {
     if (!S.courted && S.favour < 40 && view(s).player.treasury > 500) must(s, { type: 'court' }, 'court');
     for (const q of v2.peoples) if (!q.why.subsidy && q.threat >= 70 && view(s).player.treasury > q.subsidy * 3) must(s, { type: 'people', people: q.id, what: 'subsidy' }, 'subsidy');
     for (const f of v2.factions) if (f.alive && f.treaty && !f.trading && f.tradeEval && f.tradeEval.ok && view(s).player.envoys > 0) act(s, { type: 'propose', to: f.id, kind: 'trade' });
+    // governors: take on a local man for each province while the circle has room, on Balance
+    for (const q of view(s).provinces.filter((x) => x.mine && !x.governor).slice(0, 2)) {
+      const c = q.locals && q.locals[0];
+      if (c && view(s).circle.length < view(s).maxCircle) { must(s, { type: 'appoint', pid: q.id, cid: c.id, local: true }, 'appoint'); must(s, { type: 'instr', pid: q.id, instr: s.turn % 2 ? 'balance' : 'develop' }, 'instr'); }
+    }
+    // a general for any army without one, and orders for every general's army
+    for (const a of view(s).myArmies.filter((x) => !x.leader && !x.column && !x.canOrder)) { const g = view(s).generals.find((x) => !x.army); if (g) act(s, { type: 'assignGeneral', armyId: a.id, general: g.id }); }
+    for (const a of view(s).myArmies.filter((x) => x.canOrder)) must(s, { type: 'orders', armyId: a.id, order: ['expand', 'guard', 'hunt', 'support', 'hold'][(s.turn + a.id.length) % 5] }, 'orders');
     // legions left behind join the army you lead (one stays on a threatened frontier)
     const lead = v2.myArmies.find((a) => a.leader);
     if (lead) for (const g of v2.garrisons) for (const l of g.legions.slice(v2.provinces.find((q) => q.id === g.pid)?.threat >= 60 ? 1 : 0)) must(s, { type: 'joinArmy', legionId: l.id, armyId: lead.id }, 'join');

@@ -3,10 +3,13 @@
 // reinforcement columns (ai.js). A general adds to his army's strength, fights
 // its battles in his own style, and can die doing it.
 import { PROV } from './graph.js';
-import { legateName, legionName, log, makeArmy, ownedLegions, setDest } from './core.js';
+import { legionName, log, makeArmy, ownedLegions, setDest } from './core.js';
+import { STYLES, addMember, makeMan, memberById, postOf, removeMember } from './circle.js';
+export { STYLES };
 
-export const MAX_GENERALS = 4;
-export const STYLES = ['methodical', 'cautious', 'impetuous', 'cunning'];
+// Generals come from your circle (circle.js): any man can command, the better
+// his command skill the stronger his army.
+export const MAX_GENERALS = 8; // the circle's size (circle.js MAX_CIRCLE): a plain number, loaded before circle.js
 export const STYLE_TEXT = {
   methodical: 'Methodical: relieves his lines on time, charges a tired enemy.',
   cautious: 'Cautious: holds and waits; loses few men, wins few battles outright.',
@@ -14,32 +17,24 @@ export const STYLE_TEXT = {
   cunning: 'Cunning: feints and flank attacks.',
 };
 
-function hash(t) { let h = 0x811c9dc5; for (const c of t) h = Math.imul(h ^ c.charCodeAt(0), 0x01000193) >>> 0; return h; }
-
-// A man swears to you. how: a line for the dispatches. Returns the general, or
-// null if your staff is full or he is already yours.
-export function addGeneral(s, F, { id, name, style, skill, how }) {
+// A man swears to you and joins your circle. how: a line for the dispatches.
+// Returns him, or null if your circle is full or he is already yours.
+export function addGeneral(s, F, { id, name, style, skill, how, origin }) {
   if (F.kind !== 'player' || !s.opts.human) return null;
-  F.generals = F.generals || [];
-  if (F.generals.length >= MAX_GENERALS) return null;
   const gid = id || `G${s.nextId++}`;
-  if (F.generals.some((g) => g.id === gid)) return null;
-  const h = hash(gid + s.seed);
-  const g = { id: gid, name: name || legateName(gid), style: style || STYLES[h % 4], skill: skill || 1 + (h >>> 4) % 3, since: s.turn };
-  F.generals.push(g);
-  log(s, `general ${g.id}`, null, `${g.name} swears to you${how ? ' ' + how : ''}. He can command an army for you.`);
-  return g;
+  const man = makeMan(gid + '|' + s.seed, { id: gid, name, style, command: skill, origin: origin || 'sworn', loyalty: 65 });
+  if (!addMember(s, F, man, null)) return null;
+  log(s, `general ${man.id}`, null, `${man.name} swears to you${how ? ' ' + how : ''}. He can command an army or govern a province for you.`);
+  return man;
 }
 
-export const generalById = (F, gid) => (F.generals || []).find((g) => g.id === gid) || null;
+export const generalById = (F, id) => memberById(F, id);
 export const armyOfGeneral = (s, gid) => Object.values(s.armies).find((A) => A.general === gid && A.legions.length) || null;
 
 export function generalDies(s, F, gid) {
-  const g = generalById(F, gid);
+  const g = memberById(F, gid);
   if (!g) return;
-  F.generals = F.generals.filter((x) => x.id !== gid);
-  for (const A of Object.values(s.armies)) if (A.general === gid) A.general = null;
-  log(s, `general dies ${gid}`, null, `${g.name}, who commanded for you, is dead.`);
+  removeMember(s, F, gid, `${g.name}, who commanded for you, is dead.`);
 }
 
 // Legions at one place, not in any army, under a general's command.
@@ -47,6 +42,7 @@ export function formArmy(s, F, pid, gid, legionIds) {
   const g = generalById(F, gid);
   if (!g) return { error: 'No such general' };
   if (armyOfGeneral(s, gid)) return { error: `${g.name} already commands an army` };
+  if (postOf(s, F, g)?.gov) return { error: `${g.name} governs a province: relieve him first` };
   const free = ownedLegions(s, F.id).filter((l) => l.loc === pid && !l.army);
   const ids = legionIds ? free.filter((l) => legionIds.includes(l.id)).map((l) => l.id) : free.map((l) => l.id);
   if (!ids.length) return { error: 'No free legion there: detach one from an army first' };
@@ -143,6 +139,6 @@ export function commanderOf(s, F, A) {
   if (A.id === F.leaderArmy) return { name: 'You', style: null, skill: F.stats.virtus, you: true };
   if (A.column) return { name: 'A column on the march', style: null, skill: 0, column: true };
   const g = A.general && generalById(F, A.general);
-  return g ? { name: g.name, style: g.style, skill: g.skill, id: g.id } : { name: 'A senior tribune', style: null, skill: 0 };
+  return g ? { name: g.name, style: g.style, skill: g.command, id: g.id } : { name: 'A senior tribune', style: null, skill: 0 };
 }
 

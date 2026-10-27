@@ -1,10 +1,11 @@
+import { makeMan, MAX_CIRCLE } from './circle.js';
 // Saves are a contract: the key never changes, the payload carries a version,
 // and every old version migrates forward. The text code (IMPR1.) moves a game
 // between devices; the compression lives in the UI (browser streams).
 import { rngs, actOf } from './core.js';
 
 export const SAVE_KEY = 'imperator.save';
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 
 export function toSave(s) {
   const { R, events, ...rest } = s;
@@ -33,6 +34,28 @@ const MIGRATIONS = {
     s.deathsSeen = s.deathsSeen || Object.fromEntries(Object.values(s.factions).filter((f) => f.kind === 'hist' && !f.alive).map((f) => [f.id, true]));
     // legions used to gather on their own: a Phase 2 save has no generals yet
     // (the first one swears at the next month's turn, ai.js humanUpkeep)
+    return s;
+  },
+  // 2 -> 3: one circle of men per faction (circle.js). Generals and governors
+  // move into it; governors keep their names and traits.
+  2: (s) => {
+    for (const F of Object.values(s.factions)) {
+      const C = F.circle = F.circle || [];
+      for (const g of F.generals || []) C.push(makeMan(g.id + '|' + s.seed, { id: g.id, name: g.name, style: g.style, command: g.skill, origin: 'sworn', loyalty: 65, since: g.since || 0 }));
+      delete F.generals;
+      if (F.kind === 'player' && C.length) F.firstGeneral = true;
+    }
+    if (s.factions.player && s.factions.player.ownsProvince) s.factions.player.firstGeneral = true;
+    for (const P of Object.values(s.prov)) {
+      const g = P.governor, F = s.factions[P.owner];
+      if (!g || g.cid) continue;
+      if (!F || F.kind === 'state' || (F.circle || []).length >= MAX_CIRCLE) { P.governor = null; continue; }
+      const man = makeMan(`gov|${P.id}|${g.name}|${s.seed}`, { name: g.name, trait: g.trait, friend: g.friend || undefined, origin: g.friend ? 'friend' : 'local', since: g.since || 0 });
+      if (F.circle.some((m) => m.name === man.name)) man.name += ' Minor'; // two men of one name: the Romans said 'the younger'
+      F.circle.push(man);
+      P.governor = { cid: man.id, name: man.name, trait: man.trait, friend: man.friend || null, since: g.since || 0 };
+      P.instr = P.instr || 'manual'; // the player set these provinces up by hand: keep it that way until told otherwise
+    }
     return s;
   },
 };

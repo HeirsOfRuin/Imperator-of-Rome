@@ -1,3 +1,6 @@
+import { generalsOrders } from './orders.js';
+import { governorsAct } from './govern.js';
+import { circleTurn } from './circle.js';
 import { senateTurn, initSenate } from './senate.js';
 import { foreignTurn, initForeign } from './foreign.js';
 import { tradeTurn, initTrade } from './trade.js';
@@ -71,6 +74,9 @@ export function step(s) {
   frontiers(s);
   raids(s);
   for (const F of Object.values(s.factions)) if (F.kind !== "state" && F.alive) factionTurn(s, F);
+  governorsAct(s);
+  circleTurn(s);
+  generalsOrders(s);
   senateTurn(s);
   foreignTurn(s);
   diplomacyTurn(s);
@@ -117,7 +123,7 @@ export function newGame(opts) {
 // legions (Antonius Primus' role) against Vitellius' army before Cremona.
 export function bedriacum(opts = {}) {
   const s = newGame({ seed: opts.seed || 69, difficulty: opts.difficulty || 'centurion', start: 'PAN', road: opts.road || 'military', name: opts.name, skipStory: true });
-  s.turn = 19; s.lastAct = 4; s.neroPage = true; s.factions.player.generals = [];
+  s.turn = 19; s.lastAct = 4; s.neroPage = true; s.factions.player.circle = []; s.factions.player.firstGeneral = true;
   const P = s.factions.player;
   P.ownsProvince = true; P.rebel = true; P.acclaimed = true; P.legit = 40; P.treasury = 900;
   for (const pid of ['PAN', 'DAL', 'MOE', 'NIT']) s.prov[pid].owner = 'player';

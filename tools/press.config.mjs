@@ -13,7 +13,10 @@ async function clear(page) {
 }
 async function months(page, n) {
   await page.goto(page.url().split('?')[0] + '?seed=11', { waitUntil: 'load' });
-  await page.click('[data-act="new"]'); await page.click('[data-act="start"]');
+  await page.click('[data-act="new"]');
+  // "I know the way": the first-months guide covered the top of the map and army shots
+  await page.click(`[data-ng='{"guide":false}']`);
+  await page.click('[data-act="start"]');
   for (let i = 0; i < n; i++) { await clear(page); await page.click('[data-act="end-turn"]'); await clear(page); }
 }
 
@@ -21,7 +24,6 @@ export default {
   site: 'dist/site',
   size: [390, 844],             // measured: tools/embed-measure.mjs
   cover: 'docs/itch/cover.html',
-  hide: ['.toast'],
   hide: ['.toast'],
   shots: [
     { name: 'the-empire', async drive({ page }) { await months(page, 6); await page.click('[data-tab="map"]'); } },

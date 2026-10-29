@@ -64,7 +64,6 @@ Graphics, Code, Sound). Suggested wording, to adjust to your own:
   open the game fullscreen or use the save code (Menu).
 - Saves on itch and in the installed copy are separate; the save code moves a game.
 - Not yet calibrated with human players. The bot's targets are about 35 / 15 / 5% wins on Legionary / Centurion / Legate: start on Legionary.
-- The page fetches its two typefaces from Google Fonts; offline it falls back to system fonts.
 
 ## Before going public
 

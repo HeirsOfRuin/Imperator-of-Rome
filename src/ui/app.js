@@ -181,7 +181,7 @@ const START_INFO = {
   DAL: 'Two legions; closest to Italy, and exposed.', AFR: 'One legion and Rome\'s grain. Clodius Macer\'s road.',
   SYR: 'Four legions and the riches of the East; Vespasian next door.',
 };
-const ROADS = { wealth: ['Wealth', 'Buy legions, governors and senators'], military: ['Military', 'Take legions by beating them'], politics: ['Politics', 'Law, letters and the Senate'], charisma: ['Charisma', 'Men follow you, not your money'] };
+const ROADS = { wealth: ['Wealth', 'Buy legions, governors and senators'], military: ['Military', 'Take legions by beating them. Your own army force-marches two stages a month through your provinces in summer; beaten, it falls back in order; unpaid, it lives off the land; three legions in Italy make the Senate recognise you'], politics: ['Politics', 'Law, letters and the Senate'], charisma: ['Charisma', 'Men follow you, not your money'] };
 const OPT_LABEL = {
   patrician: 'Old patrician house', 'plebeian-noble': 'Plebeian nobility', 'italian-new-man': 'New man from Italy', 'provincial-new-man': 'New man from the provinces',
   'rome-rhetoric': 'Rhetoric schools in Rome', 'greek-education': 'Greek education, Athens or Rhodes', estates: 'The family estates', frontier: 'A frontier province',

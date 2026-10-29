@@ -41,7 +41,17 @@ export function movement(s) {
     for (const id of A.legions) s.legions[id].loc = A.loc;
     const res = engage(s, A, A.loc, A.loc === A.dest || !A.path.length);
     if (res === 'halt') continue;
-    if (res === 'blocked' && s.armies[A.id]) { A.loc = A.from; for (const id of A.legions) s.legions[id].loc = A.loc; A.path.unshift(A.dest ? A.path[0] || A.dest : A.loc); A.path = route(A.loc, A.dest, winter); }
+    if (res === 'blocked' && s.armies[A.id]) { A.loc = A.from; for (const id of A.legions) s.legions[id].loc = A.loc; A.path.unshift(A.dest ? A.path[0] || A.dest : A.loc); A.path = route(A.loc, A.dest, winter); continue; }
+    // forced march (§21): a soldier's own army, through country it holds, out of winter, takes a second land stage the same month
+    if (F.road === 'military' && A.id === F.leaderArmy && !winter && s.armies[A.id] && A.path.length && s.prov[A.loc].owner === A.owner && !s.pending.some((p) => p.army === A.id || p.attacker === A.id)) {
+      const e2 = ADJ[A.loc].find((x) => x.to === A.path[0]);
+      if (e2 && e2.kind === 'land' && e2.m === 1) {
+        A.from = A.loc; A.loc = A.path.shift();
+        for (const id of A.legions) { const l = s.legions[id]; l.loc = A.loc; l.men = Math.round(l.men * (1 - CONFIG.forcedMarchLoss)); }
+        const r2 = engage(s, A, A.loc, A.loc === A.dest || !A.path.length);
+        if (r2 === 'blocked' && s.armies[A.id]) { A.loc = A.from; for (const id of A.legions) s.legions[id].loc = A.loc; A.path = route(A.loc, A.dest, winter); }
+      }
+    }
   }
   if (s.opts.human) mergeColumns(s, 'player');
   cull(s);

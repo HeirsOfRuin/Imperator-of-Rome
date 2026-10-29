@@ -109,10 +109,14 @@ export function loyalty(s) {
     }
     const inLeader = l.army && l.army === F.leaderArmy;
     let d = 0;
-    if (F.kind !== 'player' || F.ownsProvince) d += F.unpaid ? -8 : 1;
+    // unpaid, a soldier's legions pay themselves from the country they stand in (§21)
+    const forage = F.unpaid && F.road === 'military';
+    if (F.kind !== 'player' || F.ownsProvince) d += F.unpaid ? (forage ? -CONFIG.forageLoss : -8) : 1;
+    if (forage && s.prov[l.loc]) s.prov[l.loc].unrest = Math.min(100, s.prov[l.loc].unrest + CONFIG.forageUnrest);
     const dist = distance(l.station, l.loc);
     let decay = Math.min(4, 0.6 * Math.max(0, dist - 1)) * (F.kind === 'player' ? s.diff.distMult : 1);
     if (inLeader && F.road === 'charisma') decay *= 0.5;
+    if (F.road === 'military') decay *= CONFIG.campaignDecay; // a soldier's legions are used to the long road (§21)
     d -= decay;
     if (inLeader) d += 0.3 * F.stats.gratia;
     if (l.overdue && l.debt > 0) d -= 6;

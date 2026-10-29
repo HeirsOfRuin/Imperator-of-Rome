@@ -10,7 +10,7 @@ export function rome(s) {
   const owner = s.prov.ROM.owner;
   const O = s.factions[owner];
   const italyHostile = Object.values(s.legions).some((l) => ['ROM', 'ETR', 'CMP'].includes(l.loc) && hostile(s, owner, l.owner) && l.owner !== 'state');
-  const terror = O && Object.values(s.legions).filter((l) => ITALY.includes(l.loc) && l.owner === owner).length >= 5;
+  const terror = O && Object.values(s.legions).filter((l) => ITALY.includes(l.loc) && l.owner === owner).length >= (O?.road === 'military' ? CONFIG.terrorLegionsMilitary : 5); // the Senate counts swords
   // the Senate under your swords revokes its decree; it votes you nothing until next month
   let lifted = false;
   if (O && O.kind !== 'state' && isHostis(s, owner) && !italyHostile) {
@@ -144,10 +144,15 @@ export function guardWhy(s, F) {
   const pr = s.legions.PRAET;
   if (s.emperor !== F.id || s.prov.ROM.owner !== F.id) return 'Only the emperor, holding Rome, can do this';
   if (F.guardReformed) return 'You have already made the Guard your own';
-  if (!pr) return 'There is no Guard to dismiss';
-  if (pr.owner !== F.id && pr.owner !== 'state') return 'The Guard serves someone else';
   if (!guardSource(s, F)) return 'You need one of your legions in Rome to fill the new cohorts';
   return null;
+}
+// a legion under a new id (the Guard's id passes to the new Guard)
+function rekey(s, l, id) {
+  delete s.legions[l.id];
+  if (l.army && s.armies[l.army]) s.armies[l.army].legions = s.armies[l.army].legions.map((x) => (x === l.id ? id : x));
+  l.id = id; s.legions[id] = l;
+  return l;
 }
 export function guardSource(s, F) {
   return Object.values(s.legions).filter((l) => l.owner === F.id && l.loc === 'ROM' && l.id !== 'PRAET' && !l.client && l.group !== 'gaul')
@@ -156,11 +161,16 @@ export function guardSource(s, F) {
 export function reformGuard(s, F) {
   const why = guardWhy(s, F);
   if (why) return { error: why };
-  const pr = s.legions.PRAET, src = guardSource(s, F);
+  let pr = s.legions.PRAET;
+  const src = guardSource(s, F);
   const mil = F.road === 'military';
+  // the Guard serves a rival, or is gone: it is struck from the rolls; you raise your own
+  let struck = false;
+  if (pr && pr.owner !== F.id && pr.owner !== 'state') { rekey(s, pr, `L${s.nextId++}`).name = 'The old Praetorians'; pr = null; }
+  if (!pr) { struck = true; pr = newLegion(s, { id: 'PRAET', station: 'ROM', group: 'italy', owner: F.id, payMult: CONFIG.praetorianPayMult }); }
   // the old Guard, stripped of its belts, goes to whoever will have it
-  const rival = Object.values(s.factions).filter((x) => x.alive && x.kind === 'hist' && x.id !== F.id).sort((a, b) => strengthOf(s, b.id) - strengthOf(s, a.id))[0];
-  const old = newLegion(s, { name: 'The cashiered Praetorians', station: 'ROM', group: 'italy', men: pr.men, exp: pr.exp, owner: rival ? rival.id : 'state', loyalty: 75, loc: rival ? rival.base : 'CMP' });
+  const rival = struck ? null : Object.values(s.factions).filter((x) => x.alive && x.kind === 'hist' && x.id !== F.id).sort((a, b) => strengthOf(s, b.id) - strengthOf(s, a.id))[0];
+  const old = struck ? null : newLegion(s, { name: 'The cashiered Praetorians', station: 'ROM', group: 'italy', men: pr.men, exp: pr.exp, owner: rival ? rival.id : 'state', loyalty: 75, loc: rival ? rival.base : 'CMP' });
   // the new Guard: your legion, swollen with picked men from the rest, at three times the pay
   if (pr.army) takeLegion(s, pr, pr.owner, pr.loyalty);
   if (src.army) takeLegion(s, src, src.owner, src.loyalty);
@@ -168,15 +178,15 @@ export function reformGuard(s, F) {
   removeLegion(s, src);
   F.guardReformed = s.turn;
   // the scandal: the Senate and the city; the legions cheer
-  addFavour(s, F.id, -25);
-  F.legit = Math.max(0, F.legit - (mil ? 3 : 8));
-  s.romeUnrest = Math.min(100, s.romeUnrest + 20);
+  addFavour(s, F.id, -CONFIG.guardScandal);
+  F.legit = Math.max(0, F.legit - (mil ? 0 : 6));
+  s.romeUnrest = Math.min(100, s.romeUnrest + 10);
   for (const l of ownedLegions(s, F.id)) if (l.id !== 'PRAET') l.loyalty = Math.min(100, l.loyalty + (mil ? 10 : 5));
   if (F.kind === 'player') s.stats.guardReformed = s.turn;
   s.stats.guardReformedAll = (s.stats.guardReformedAll || 0) + 1;
   log(s, `guard reformed ${F.id}`, 'ROM', F.kind === 'player'
-    ? `You dismiss the Praetorian Guard. Its men surrender their swords and belts in the camp and walk out of Rome; ${rival ? `they will march for ${rival.name}` : 'they scatter into Campania'}. ${legionName(src)} becomes your Guard. The Senate is appalled; the legions want to be next.`
-    : `${F.name} dismisses the Praetorian Guard and fills its camp with his own legionaries. ${rival ? `The cashiered Guard marches to join ${rival.kind === 'player' ? 'you' : rival.name}.` : 'The cashiered Guard scatters.'}`);
+    ? `${struck ? 'You strike the Praetorian Guard from the rolls of Rome.' : `You dismiss the Praetorian Guard. Its men surrender their swords and belts in the camp and walk out of Rome; ${rival ? `they will march for ${rival.name}` : 'they scatter into Campania'}.`} ${legionName(src)} becomes your Guard. The Senate is appalled; the legions want to be next.`
+    : `${F.name} ${struck ? 'raises a new Praetorian Guard' : 'dismisses the Praetorian Guard and fills its camp'} from his own legionaries. ${rival ? `The cashiered Guard marches to join ${rival.kind === 'player' ? 'you' : rival.name}.` : ''}`);
   void old;
   return { ok: true };
 }

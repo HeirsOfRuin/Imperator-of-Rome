@@ -6,7 +6,7 @@ import { generalById, generalDies } from './generals.js';
 import { legionPay } from './world.js';
 import { CONFIG, FIGHT_RATIO, NEG_THRESHOLD, ROAD_PREFS } from './config.js';
 import { ADJ, PROV } from './graph.js';
-import { fallBack, legionName, who, money, armyPower, bodyGroup, bodyLoyalty, bodyMen, bodyPower, buyCost, cull, debtTotal, flipProvince, gainBody, hostile, killFaction, log, negotiateChance, ownedLegions, retreatLegion, setAside, takeLegion } from './core.js';
+import { nearestHeld, fallBack, legionName, who, money, armyPower, bodyGroup, bodyLoyalty, bodyMen, bodyPower, buyCost, cull, debtTotal, flipProvince, gainBody, hostile, killFaction, log, negotiateChance, ownedLegions, retreatLegion, setAside, takeLegion } from './core.js';
 import { hold } from './rome.js';
 import { setupBattle, autoBattle, survivors, defectors } from './battle.js';
 import { CAPITALS } from '../data/seeds.js';
@@ -271,15 +271,24 @@ export function fight(s, F, A, b, ctx) {
 export function defeatArmy(s, D, F, A, large) {
   const owner = s.factions[D.owner];
   const r = s.R.combat;
+  // a soldier's army falls back in order (§21): fewer men go over, and none are left behind
+  const drilled = owner.road === 'military';
   for (const id of [...D.legions]) {
     const l = s.legions[id];
     if (!l) continue;
-    if (r.chance((large ? 0.25 : 0.2) + (F.road === 'military' ? CONFIG.militaryAbsorb : 0))) { takeLegion(s, l, F.id, 30); if (A) { l.army = A.id; l.loc = A.loc; A.legions.push(l.id); } }
+    if (r.chance(((large ? 0.25 : 0.2) + (F.road === 'military' ? CONFIG.militaryAbsorb : 0)) * (drilled ? CONFIG.drilledDesert : 1))) { takeLegion(s, l, F.id, 30); if (A) { l.army = A.id; l.loc = A.loc; A.legions.push(l.id); } }
   }
   armyDefeated(s, owner, D, large);
   if (s.armies[D.id]) {
     const back = ADJ[D.loc].map((e) => e.to).find((p) => s.prov[p].owner === D.owner);
+    // cut off: drilled legions march to the nearest province of their own, at a price in men
+    const far = !back && drilled && D.legions.length ? nearestHeld(s, D.owner, D.loc) : null;
     if (back) { D.loc = back; D.path = []; for (const id of D.legions) s.legions[id].loc = back; }
+    else if (far) {
+      D.loc = far; D.path = []; D.dest = null;
+      for (const id of D.legions) { const l = s.legions[id]; l.loc = far; l.men = Math.max(1000, Math.round(l.men * (1 - CONFIG.drilledRetreatLoss))); }
+      if (owner.kind === 'player') { s.stats.drilledRetreats = (s.stats.drilledRetreats || 0) + 1; log(s, `drilled retreat ${D.id}`, far, `Cut off and beaten, your legions close ranks and fight their way back to ${PROV[far].name}. They lose men on the road, but not their eagles.`); }
+    }
     else for (const id of [...D.legions]) retreatLegion(s, s.legions[id]);
   }
 }

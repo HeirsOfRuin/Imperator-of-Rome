@@ -697,3 +697,39 @@ legions (19.6 against 23.7) and loses its whole army four times as often
 changed nothing, so the cause is in the road, not the bot's appetite. The
 Guard is kept for what it is, a scandal with teeth; the war-phase gap needs
 its own fix.
+
+## 21. The military road: a soldier's army (2026-10-29)
+
+The author asked for the military retreat fix. Measured first (560 campaigns a
+road on Centurion): the gap was not in battle but in time. A military claimant
+took Rome at month 29.5 against 20.8 for wealth, waited 4 months for the
+Senate's recognition against 1.8, and ran short of money (unpaid in 61 months
+of 1,394 against 17), which drove three times the mutinies (68 legions lost
+against 19). Beaten armies cut off from home were a smaller cause (18 armies
+wiped out against 4).
+
+Same rules for every military-road faction (`combat.js`, `world.js`,
+`movement.js`, `rome.js`):
+- **Orderly retreat.** A beaten military army loses 40% of the usual
+  desertions to the victor; cut off from its own provinces, it fights back to
+  the nearest one, losing 15% of its men, instead of scattering.
+- **Living off the land.** Unpaid, its legions lose 3 loyalty a month, not 8;
+  each foraging legion adds 2 unrest to the province it stands in.
+- **The long road.** Its legions lose half the usual loyalty to distance from
+  home.
+- **Forced marches.** The leader's own army, through a province it holds,
+  outside winter, takes a second one-month land stage in the same month (1%
+  of its men).
+- **The Senate counts swords.** Three of its legions in Italy, not five, force
+  recognition.
+- **The Guard**, from §20, may now be dismissed when a rival holds it: that
+  rival keeps it as "the old Praetorians" and you raise your own.
+
+Result (560 a road, 2,240 a level): military on Centurion 9.5% → 12.3%, level
+with charisma (12.5%); wealth 19.5%, politics 19.8%. Rival military claimants
+gained too, so the levels were retuned on holding Rome: Legionary 15 → 13
+months, Legate 27 → 23. Balance: Legionary 36.8%, Centurion 16.0%, Legate 5.0%.
+Earlier figures in this document came from 140–210 runs a road and read about
+4 points high on Legionary; from here on, measure with 560 a road.
+Still open: on Legionary the military road wins 24.6% against 39–44% for the
+others.

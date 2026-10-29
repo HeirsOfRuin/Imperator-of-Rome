@@ -68,7 +68,7 @@ a full campaign to a win runs about 40 monthly turns.
 | I | Legatus | March 68 | Control your province: win the other legions, remove or turn the governor | Fellow legates, the governor, procurators, procedural rivals |
 | II | Acclamation | You control your province | Build strength, take neighbours, pick the moment to be proclaimed | Historical minor claimants (§8), procedural claimants; Galba proclaimed (April 68) |
 | III | The March | You are proclaimed, or January 69 | Take provinces, secure grain and money, close on Italy | Galba, Otho, Vitellius active and anchored; Vespasian joins July 69; minor claimants still appear |
-| IV | Year of Five Emperors | July 69, Vespasian's proclamation *(kill gate: fixed to the calendar)* | Take Rome, be recognised by the Senate, hold it (15 / 18 / 27 months by difficulty); the hold clock runs only in Act IV | The four historical claimants, anchoring off |
+| IV | Year of Five Emperors | July 69, Vespasian's proclamation *(kill gate: fixed to the calendar)* | Take Rome, be recognised by the Senate, hold it (13 / 18 / 23 months by difficulty); the hold clock runs only in Act IV | The four historical claimants, anchoring off |
 
 **Acts I–III play differently.**
 - **Act I** is close-in politics and small fights inside one province: three or
@@ -397,7 +397,7 @@ Three levels, named for the ranks you would rather be in the war.
 | Procedural rivals per act | 1 | 2 | 3–4 |
 | Historical minor claimants | Some stand aside | All active | All active; more of them can win |
 | Rival behaviour | Slow; rarely outbid you | Act on the player's rules | Act on the player's rules, ally against the leader |
-| Hold Rome for | 15 months | 18 months | 27 months |
+| Hold Rome for | 13 months | 18 months | 23 months |
 | Loyalty drop with distance | Halved | Normal | Normal; promises fall due sooner |
 | Frontier threat | Low | Normal | High |
 | News lag | Rivals shown as of now | Normal | Normal; more false rumour |

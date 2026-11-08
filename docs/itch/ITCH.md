@@ -18,6 +18,7 @@ Every count in the copy is read out of the build, not from memory.
 |---|---|
 | Kind of project | HTML |
 | Upload 1 (played on the page) | `imperator-web.zip`, tick "This file will be played in the browser" |
+| Upload 2 (download) | `imperator.html`, tick Windows, macOS and Linux; display name "Imperator (download, opens in any browser)". Built by `node tools/bundle-single.mjs` after `node tools/build-site.mjs`, then packed with `build-itch.mjs --single=dist/imperator.html` |
 | Embed | **390 x 844** (measured with `node tools/embed-measure.mjs`; paste its table below) |
 | Mobile friendly | On, orientation portrait |
 | Fullscreen button | On |

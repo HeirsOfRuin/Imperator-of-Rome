@@ -15,6 +15,7 @@
     "claims": "node sim/verify-claims.js sim/claims.js",
     "killgate": "node prototypes/killgate/run.js",
     "build": "node tools/build-site.mjs",
+    "build:single": "node tools/build-site.mjs && node tools/bundle-single.mjs",
     "smoke": "node tools/smoke.mjs",
     "check-bundle": "node tools/check-bundle.mjs",
     "fixtures": "node tools/make-fixtures.mjs",

@@ -19,6 +19,12 @@
     "smoke": "node tools/smoke.mjs",
     "check-bundle": "node tools/check-bundle.mjs",
     "fixtures": "node tools/make-fixtures.mjs",
-    "offline": "node tools/offline.mjs"
+    "offline": "node tools/offline.mjs",
+    "build:app": "node tools/build-site.mjs && node tools/bundle-single.mjs && node -e \"const f=require('fs');f.rmSync('dist/app',{recursive:true,force:true});f.mkdirSync('dist/app',{recursive:true});f.copyFileSync('dist/imperator.html','dist/app/index.html')\""
+  },
+  "devDependencies": {
+    "@capacitor/android": "^8.6.0",
+    "@capacitor/cli": "^8.6.0",
+    "@capacitor/core": "^8.6.0"
   }
 }

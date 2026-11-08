@@ -1,0 +1,66 @@
+# Builds Imperator's Android app (the itch.io download) on every push that changes the
+# game, and on demand once this file is on the default branch (Actions > Android app >
+# Run workflow). The APK is attached to the run as an artifact (docs/ANDROID.md).
+# Signing: repository secrets ANDROID_KEYSTORE_BASE64 and ANDROID_KEYSTORE_PASSWORD, the
+# same key as Knight of Adalia's and House of Adalia's apps. Without them it builds a TEST
+# APK with a throwaway key, which can never update an installed copy: never publish it.
+name: Android app
+
+on:
+  push:
+    paths: [src/**, fonts/**, icons/**, index.html, manifest.webmanifest, package.json, package-lock.json, capacitor.config.json, android/**, tools/build-site.mjs, tools/bundle-single.mjs, tools/stamp.mjs, .github/workflows/android.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - run: npm ci
+      # the app holds the single-file build (dist/app/index.html): no service worker, nothing beside it
+      - run: npm run build:app
+      - run: npx cap sync android
+      - name: Signing key
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+            echo "ANDROID_KEYSTORE_FILE=$RUNNER_TEMP/release.keystore" >> "$GITHUB_ENV"
+          else
+            echo "::warning::No signing key in the repository secrets: this is a TEST APK only. See docs/ANDROID.md."
+          fi
+      - name: Build the APK
+        working-directory: android
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_VERSION_CODE: ${{ github.run_number }}
+        run: |
+          chmod +x gradlew
+          if [ -n "$ANDROID_KEYSTORE_FILE" ]; then
+            ./gradlew --no-daemon assembleRelease
+            cp app/build/outputs/apk/release/app-release.apk "$GITHUB_WORKSPACE/imperator.apk"
+          else
+            ./gradlew --no-daemon assembleDebug
+            cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/imperator-TEST.apk"
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: imperator-android
+          path: imperator*.apk
+          retention-days: 30

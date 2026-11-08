@@ -1,0 +1,6 @@
+{
+  "appId": "io.github.heirsofruin.imperator",
+  "appName": "Imperator",
+  "webDir": "dist/app",
+  "android": { "backgroundColor": "#4E1A45" }
+}

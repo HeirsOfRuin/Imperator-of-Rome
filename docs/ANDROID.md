@@ -19,25 +19,27 @@ workflow is on the default branch, **Run workflow** on the same page builds one 
 
 ## The signing key (once)
 Android installs an update over an installed app only if both were signed with the same key. The
-key is never in the repository. Imperator uses the same key as Knight of Adalia's and House of
-Adalia's apps (key alias `knight`). In this repository: **Settings > Secrets and variables >
-Actions > New repository secret**, twice, with the same values as in Knight of Adalia's repository:
+key is never in the repository. Imperator and Silk Road share one key, made 2026-11-20 (key alias
+`heirsofruin`), because the Adalia apps' keystore was not to hand and a GitHub secret cannot be
+read back out. In this repository: **Settings > Secrets and variables > Actions > New repository
+secret**, twice:
 
 | Secret | Value |
 |---|---|
-| `ANDROID_KEYSTORE_BASE64` | the keystore file, base64-encoded |
-| `ANDROID_KEYSTORE_PASSWORD` | its password |
+| `ANDROID_KEYSTORE_BASE64` | the keystore file, base64-encoded (`ANDROID_KEYSTORE_BASE64.txt`) |
+| `ANDROID_KEYSTORE_PASSWORD` | its password (`ANDROID_KEYSTORE_PASSWORD.txt`) |
 
-GitHub never shows a secret again once saved, so copy the values from where you keep the keystore,
-not from Knight of Adalia's settings page. The apps are different apps
-(`io.github.heirsofruin.imperator` here) and install side by side. **The appId is permanent** once
-an APK is published.
+Keep the keystore and its password outside GitHub, in a password manager: if they are lost, the
+published app can never be updated, and players would have to uninstall and lose their saves.
+The apps are different apps (`io.github.heirsofruin.imperator` here) and install side by side.
+**The appId is permanent** once an APK is published.
 
 ## What is in the repository
 - `capacitor.config.json`: the app id, name, the web folder (`dist/app`) and the background colour.
 - `android/`: the Android project Capacitor generated (`npx cap add android`), with two edits in
   `app/build.gradle`: the version code is the workflow's run number, so every APK installs over the
-  last; and the release signing block reads the key from the workflow's environment.
+  last; and the release signing block reads the key from the workflow's environment (alias
+  `heirsofruin`).
 - `tools/android-icons.mjs`: draws the launcher icons and splash screens from `icons/`. Re-run it if
   the icons change.
 

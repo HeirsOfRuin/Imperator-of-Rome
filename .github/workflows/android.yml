@@ -2,7 +2,7 @@
 # game, and on demand once this file is on the default branch (Actions > Android app >
 # Run workflow). The APK is attached to the run as an artifact (docs/ANDROID.md).
 # Signing: repository secrets ANDROID_KEYSTORE_BASE64 and ANDROID_KEYSTORE_PASSWORD, the
-# same key as Knight of Adalia's and House of Adalia's apps. Without them it builds a TEST
+# same key as Silk Road (alias heirsofruin). Without them it builds a TEST
 # APK with a throwaway key, which can never update an installed copy: never publish it.
 name: Android app
 
